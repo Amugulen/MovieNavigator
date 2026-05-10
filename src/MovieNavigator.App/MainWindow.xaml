@@ -32,9 +32,9 @@
                 <TextBlock Text="导航" Foreground="#9CA3AF" Margin="0,0,0,8" />
                 <ListBox ItemsSource="{Binding NavigationItems}" SelectedItem="{Binding SelectedSection}" Background="Transparent" Foreground="#F9FAFB" BorderThickness="0" />
                 <TextBlock Text="硬盘" Foreground="#9CA3AF" Margin="0,20,0,8" />
-                <ListBox ItemsSource="{Binding DriveItems}" Background="Transparent" Foreground="#F9FAFB" BorderThickness="0" />
+                <ListBox ItemsSource="{Binding DriveItems}" SelectedItem="{Binding SelectedDrive}" DisplayMemberPath="DisplayName" Background="Transparent" Foreground="#F9FAFB" BorderThickness="0" />
                 <TextBlock Text="TAG索引" Foreground="#9CA3AF" Margin="0,20,0,8" />
-                <ListBox ItemsSource="{Binding Tags}" DisplayMemberPath="DisplayName" Background="Transparent" Foreground="#F9FAFB" BorderThickness="0" />
+                <ListBox ItemsSource="{Binding Tags}" SelectedItem="{Binding SelectedTag}" DisplayMemberPath="DisplayName" Background="Transparent" Foreground="#F9FAFB" BorderThickness="0" />
             </StackPanel>
         </Border>
 
@@ -47,7 +47,7 @@
 
             <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Padding="12" Background="#0F172A" Foreground="#F9FAFB" BorderBrush="#374151" />
             <TextBlock Grid.Row="1" Text="{Binding ResultSummary}" Foreground="#FBBF24" VerticalAlignment="Center" />
-            <ListBox Grid.Row="2" ItemsSource="{Binding MediaCards}" Background="#111827" BorderThickness="0">
+            <ListBox Grid.Row="2" ItemsSource="{Binding MediaCards}" SelectedItem="{Binding SelectedMedia}" Background="#111827" BorderThickness="0">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <Border Background="#1F2937" CornerRadius="12" Padding="12" Margin="0,0,0,10">
@@ -71,17 +71,18 @@
         <Border Grid.Column="2" Grid.Row="1" Background="#1F2937" CornerRadius="14" Padding="16" Margin="0,0,0,12">
             <StackPanel>
                 <TextBlock Text="{Binding DetailTitle}" Foreground="#F9FAFB" FontSize="22" FontWeight="SemiBold" />
-                <TextBlock Text="路径：D:\Movies\example.mkv" Foreground="#D1D5DB" Margin="0,16,0,0" TextWrapping="Wrap" />
-                <TextBlock Text="时长：02:14:36" Foreground="#D1D5DB" />
-                <TextBlock Text="分辨率：1080p" Foreground="#D1D5DB" />
+                <TextBlock Text="{Binding SelectedTitle}" Foreground="#FBBF24" FontSize="16" Margin="0,12,0,0" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding SelectedPath, StringFormat=路径：{0}}" Foreground="#D1D5DB" Margin="0,8,0,0" TextWrapping="Wrap" />
+                <TextBlock Text="{Binding SelectedDuration, StringFormat=时长：{0}}" Foreground="#D1D5DB" />
+                <TextBlock Text="{Binding SelectedResolution, StringFormat=分辨率：{0}}" Foreground="#D1D5DB" />
                 <TextBlock Text="导演：待确认" Foreground="#D1D5DB" />
                 <TextBlock Text="国家：苏联" Foreground="#D1D5DB" />
-                <TextBlock Text="TAG：country.soviet_union" Foreground="#FBBF24" Margin="0,8,0,16" />
-                <Button Content="{Binding OpenDefaultPlayerText}" Margin="0,0,0,8" />
-                <Button Content="{Binding OpenFolderText}" Margin="0,0,0,8" />
-                <Button Content="{Binding MoveOrganizeText}" Margin="0,0,0,8" />
-                <Button Content="{Binding RescanText}" Margin="0,0,0,8" />
-                <Button Content="{Binding AddTagText}" />
+                <TextBlock Text="{Binding SelectedTags, StringFormat=TAG：{0}}" Foreground="#FBBF24" Margin="0,8,0,16" TextWrapping="Wrap" />
+                <Button Content="{Binding OpenDefaultPlayerText}" Click="OpenDefaultPlayerButton_Click" Margin="0,0,0,8" />
+                <Button Content="{Binding OpenFolderText}" Click="OpenFolderButton_Click" Margin="0,0,0,8" />
+                <Button Content="{Binding MoveOrganizeText}" Click="MoveOrganizeButton_Click" Margin="0,0,0,8" />
+                <Button Content="{Binding RescanText}" Click="RescanButton_Click" Margin="0,0,0,8" />
+                <Button Content="{Binding AddTagText}" Click="AddTagButton_Click" />
             </StackPanel>
         </Border>
 

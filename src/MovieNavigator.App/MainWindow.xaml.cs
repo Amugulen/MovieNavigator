@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.IO;
 using System.Windows;
 using MovieNavigator.App.Localization;
 using MovieNavigator.App.ViewModels;
@@ -58,5 +60,65 @@ public partial class MainWindow : Window
         }
 
         await _viewModel.QuickScanFolderAsync(dialog.SelectedPath, CancellationToken.None);
+    }
+
+    private void OpenDefaultPlayerButton_Click(object sender, RoutedEventArgs e)
+    {
+        var path = GetSelectedExistingFilePath();
+        if (path is null)
+        {
+            return;
+        }
+
+        Process.Start(new ProcessStartInfo(path) { UseShellExecute = true });
+    }
+
+    private void OpenFolderButton_Click(object sender, RoutedEventArgs e)
+    {
+        var path = GetSelectedExistingFilePath();
+        if (path is null)
+        {
+            return;
+        }
+
+        Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{path}\"") { UseShellExecute = true });
+    }
+
+    private void MoveOrganizeButton_Click(object sender, RoutedEventArgs e)
+    {
+        ShowInfo("移动/整理功能还没有接入真实文件操作。当前版本只支持扫描、选中、默认播放器打开、打开所在目录。");
+    }
+
+    private void RescanButton_Click(object sender, RoutedEventArgs e)
+    {
+        ShowInfo("重新识别功能还没有接入 ffprobe/TMDb/AI。当前版本使用快速扫描入库，时长和分辨率会显示为待分析。");
+    }
+
+    private void AddTagButton_Click(object sender, RoutedEventArgs e)
+    {
+        ShowInfo("添加 TAG 功能还没有接入编辑器。当前版本会自动添加硬盘 TAG，例如 storage.drive.d。");
+    }
+
+    private string? GetSelectedExistingFilePath()
+    {
+        var selected = _viewModel.SelectedMedia;
+        if (selected is null)
+        {
+            ShowInfo("请先在中间列表中选择一个影片。");
+            return null;
+        }
+
+        if (!File.Exists(selected.FilePath))
+        {
+            ShowInfo($"文件不存在或硬盘未连接：{selected.FilePath}");
+            return null;
+        }
+
+        return selected.FilePath;
+    }
+
+    private static void ShowInfo(string message)
+    {
+        System.Windows.MessageBox.Show(message, "Movie Navigator", MessageBoxButton.OK, MessageBoxImage.Information);
     }
 }

@@ -283,3 +283,39 @@ git status --short --branch
 - `daf3e60` feat: add media and tag domain models
 - `460202f` chore: scaffold Movie Navigator solution
 
+## 2026-05-10 按钮无效问题修复记录
+
+用户反馈：快速扫描能扫出结果，但界面上所有按钮/可点击区域看起来都不生效。
+
+根因：
+- 已提交版本的右侧详情按钮只有文字和样式，没有绑定 Click 处理逻辑。
+- 媒体列表没有 SelectedItem 绑定，右侧详情面板一直显示静态示例数据。
+- 搜索框只保存输入文本，没有触发列表过滤。
+- 左侧硬盘列表、TAG 列表只显示数据，没有 SelectedItem 绑定和过滤行为。
+- 左侧导航只会高亮，不会改变状态，也不会告诉用户下一步该怎么操作。
+
+已修复：
+- 媒体列表绑定 `SelectedMedia`，右侧详情面板显示真实选中视频的路径、时长、分辨率、TAG。
+- “默认播放器打开”会用系统默认播放器打开选中文件。
+- “打开所在目录”会用 Explorer 定位选中文件。
+- “移动/整理”“重新识别”“添加TAG”在未实现真实功能前会弹出明确说明，不再静默无效。
+- 搜索框按标题、路径、硬盘、TAG 即时过滤扫描结果。
+- 硬盘列表绑定 `SelectedDrive`，点击硬盘后过滤该硬盘的视频。
+- TAG 列表绑定 `SelectedTag`，点击 TAG 后过滤命中该 TAG 的视频。
+- 点击“首页/普通库”会清除筛选并恢复全部扫描结果。
+- 点击“硬盘浏览/TAG索引/待确认/设置/成人库锁定”会更新状态提示。
+
+验证：
+```powershell
+dotnet test .\tests\MovieNavigator.Tests\MovieNavigator.Tests.csproj -v minimal
+```
+结果：32 个测试通过，0 失败。
+
+```powershell
+dotnet build .\MovieNavigator.sln -v minimal
+```
+结果：0 警告，0 错误。
+
+注意：
+- 本轮没有把“移动/整理”“重新识别”“添加TAG”做成真实业务功能，只是保证按钮有明确反馈。
+- 下一步如果继续做功能，应优先实现 TAG 编辑器、文件移动/复制计划确认、ffprobe 重新识别、启动时从 SQLite 重新加载历史扫描结果。
