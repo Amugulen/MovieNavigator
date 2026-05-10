@@ -15,7 +15,17 @@
             <RowDefinition Height="170" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.ColumnSpan="3" Text="{Binding AppTitle}" Foreground="#F9FAFB" FontSize="28" FontWeight="SemiBold" VerticalAlignment="Center" />
+        <Grid Grid.ColumnSpan="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+                <TextBlock Text="{Binding AppTitle}" Foreground="#F9FAFB" FontSize="28" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding StatusMessage}" Foreground="#9CA3AF" FontSize="13" />
+            </StackPanel>
+            <Button Grid.Column="1" Content="选择目录并快速扫描" Click="ScanFolderButton_Click" Padding="18,8" Background="#FBBF24" Foreground="#111827" FontWeight="SemiBold" />
+        </Grid>
 
         <Border Grid.Row="1" Grid.RowSpan="2" Background="#1F2937" CornerRadius="14" Padding="12" Margin="0,0,12,0">
             <StackPanel>
@@ -36,7 +46,7 @@
             </Grid.RowDefinitions>
 
             <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Padding="12" Background="#0F172A" Foreground="#F9FAFB" BorderBrush="#374151" />
-            <TextBlock Grid.Row="1" Text="筛选结果：苏联 + 战争 + 1970年代 + D盘 + 时长&gt;20分钟" Foreground="#FBBF24" VerticalAlignment="Center" />
+            <TextBlock Grid.Row="1" Text="{Binding ResultSummary}" Foreground="#FBBF24" VerticalAlignment="Center" />
             <ListBox Grid.Row="2" ItemsSource="{Binding MediaCards}" Background="#111827" BorderThickness="0">
                 <ListBox.ItemTemplate>
                     <DataTemplate>

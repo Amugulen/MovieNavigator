@@ -1,15 +1,19 @@
 using System.Windows;
 using MovieNavigator.App.Localization;
 using MovieNavigator.App.ViewModels;
+using MovieNavigator.Infrastructure.Persistence;
 
 namespace MovieNavigator.App;
 
 public partial class MainWindow : Window
 {
-    public MainWindow()
+    private readonly MainWindowViewModel _viewModel;
+
+    public MainWindow(SqliteConnectionFactory databaseFactory)
     {
         InitializeComponent();
-        DataContext = new MainWindowViewModel(CreateLocalizer());
+        _viewModel = new MainWindowViewModel(CreateLocalizer(), new SqliteMediaRepository(databaseFactory));
+        DataContext = _viewModel;
     }
 
     private static IAppLocalizer CreateLocalizer()
@@ -38,5 +42,21 @@ public partial class MainWindow : Window
                 },
                 ["en-US"] = new Dictionary<string, string>()
             });
+    }
+
+    private async void ScanFolderButton_Click(object sender, RoutedEventArgs e)
+    {
+        using var dialog = new System.Windows.Forms.FolderBrowserDialog
+        {
+            Description = "选择要扫描的影视目录",
+            UseDescriptionForTitle = true
+        };
+
+        if (dialog.ShowDialog() != System.Windows.Forms.DialogResult.OK)
+        {
+            return;
+        }
+
+        await _viewModel.QuickScanFolderAsync(dialog.SelectedPath, CancellationToken.None);
     }
 }
