@@ -90,7 +90,26 @@ public sealed class SqliteMediaRepository : IMediaRepository
         command.Parameters.AddWithValue("$query", EscapeFtsQuery(query));
         command.Parameters.AddWithValue("$libraryType", (int)libraryType);
         command.Parameters.AddWithValue("$includeAdult", includeAdultWhenUnlocked ? 1 : 0);
-        return await ReadMediaItemsAsync(command, cancellationToken);
+        var ftsResults = await ReadMediaItemsAsync(command, cancellationToken);
+        if (ftsResults.Count > 0)
+        {
+            return ftsResults;
+        }
+
+        var fallback = connection.CreateCommand();
+        fallback.CommandText = """
+        SELECT m.id, m.library_type, m.status, m.file_path, m.file_name, m.drive_key, m.size_bytes, m.duration_seconds, m.width, m.height, m.title, m.original_title, m.year, m.summary, m.created_at, m.updated_at
+        FROM media_items m
+        JOIN media_search s ON s.media_id = m.id
+        WHERE s.content LIKE $likeQuery
+          AND m.library_type = $libraryType
+          AND ($includeAdult = 1 OR m.library_type <> 1)
+        ORDER BY m.updated_at DESC;
+        """;
+        fallback.Parameters.AddWithValue("$likeQuery", $"%{query}%");
+        fallback.Parameters.AddWithValue("$libraryType", (int)libraryType);
+        fallback.Parameters.AddWithValue("$includeAdult", includeAdultWhenUnlocked ? 1 : 0);
+        return await ReadMediaItemsAsync(fallback, cancellationToken);
     }
 
     public async Task<IReadOnlyList<MediaItem>> GetByDriveAsync(string driveKey, MediaLibraryType libraryType, CancellationToken cancellationToken)
