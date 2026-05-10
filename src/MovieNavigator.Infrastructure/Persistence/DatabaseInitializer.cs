@@ -22,6 +22,10 @@ public static class DatabaseInitializer
             original_title TEXT NULL,
             year INTEGER NULL,
             summary TEXT NULL,
+            thumbnail_path TEXT NULL,
+            extension TEXT NULL,
+            last_write_time_utc TEXT NULL,
+            missing_since TEXT NULL,
             created_at TEXT NOT NULL,
             updated_at TEXT NOT NULL
         );
@@ -53,5 +57,34 @@ public static class DatabaseInitializer
         );
         """;
         await command.ExecuteNonQueryAsync(cancellationToken);
+
+        await EnsureColumnAsync(factory, "media_items", "thumbnail_path", "TEXT NULL", cancellationToken);
+        await EnsureColumnAsync(factory, "media_items", "extension", "TEXT NULL", cancellationToken);
+        await EnsureColumnAsync(factory, "media_items", "last_write_time_utc", "TEXT NULL", cancellationToken);
+        await EnsureColumnAsync(factory, "media_items", "missing_since", "TEXT NULL", cancellationToken);
+    }
+
+    private static async Task EnsureColumnAsync(
+        SqliteConnectionFactory factory,
+        string tableName,
+        string columnName,
+        string columnDefinition,
+        CancellationToken cancellationToken)
+    {
+        var connection = await factory.OpenAsync(cancellationToken);
+        var pragma = connection.CreateCommand();
+        pragma.CommandText = $"PRAGMA table_info({tableName});";
+        await using var reader = await pragma.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            if (string.Equals(reader.GetString(1), columnName, StringComparison.OrdinalIgnoreCase))
+            {
+                return;
+            }
+        }
+
+        var alter = connection.CreateCommand();
+        alter.CommandText = $"ALTER TABLE {tableName} ADD COLUMN {columnName} {columnDefinition};";
+        await alter.ExecuteNonQueryAsync(cancellationToken);
     }
 }

@@ -76,6 +76,24 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task Quick_scan_uses_video_inspector_when_available()
+    {
+        using var temp = new TemporaryVideoFolder();
+        var video = temp.CreateLargeVideo("inspected.mkv");
+        var repository = new InMemoryMediaRepository();
+        var inspector = new InMemoryVideoInspector(new VideoInspectionResult(TimeSpan.FromMinutes(95), 1920, 1080, "h264"));
+        var viewModel = new MainWindowViewModel(new PassThroughLocalizer(), repository, videoInspector: inspector);
+
+        await viewModel.QuickScanFolderAsync(temp.Path, CancellationToken.None);
+
+        var item = await repository.GetByPathAsync(video, CancellationToken.None);
+        item.Should().NotBeNull();
+        item!.Duration.Should().Be(TimeSpan.FromMinutes(95));
+        item.Width.Should().Be(1920);
+        item.Height.Should().Be(1080);
+    }
+
+    [Fact]
     public async Task Search_text_filters_scanned_media_cards()
     {
         using var temp = new TemporaryVideoFolder();
@@ -270,6 +288,21 @@ public sealed class MainWindowViewModelTests
             Roots.Remove(root);
             Roots.Add(root with { LastScanAt = scannedAt });
             return Task.CompletedTask;
+        }
+    }
+
+    private sealed class InMemoryVideoInspector : IVideoInspector
+    {
+        private readonly VideoInspectionResult _result;
+
+        public InMemoryVideoInspector(VideoInspectionResult result)
+        {
+            _result = result;
+        }
+
+        public Task<VideoInspectionResult> InspectAsync(string filePath, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(_result);
         }
     }
 }

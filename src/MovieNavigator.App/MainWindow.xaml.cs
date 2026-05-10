@@ -4,6 +4,7 @@ using System.Windows;
 using MovieNavigator.App.Localization;
 using MovieNavigator.App.ViewModels;
 using MovieNavigator.Infrastructure.Persistence;
+using MovieNavigator.Infrastructure.Video;
 
 namespace MovieNavigator.App;
 
@@ -17,9 +18,17 @@ public partial class MainWindow : Window
         _viewModel = new MainWindowViewModel(
             CreateLocalizer(),
             new SqliteMediaRepository(databaseFactory),
-            new SqliteScanRootRepository(databaseFactory));
+            new SqliteScanRootRepository(databaseFactory),
+            new FfmpegThumbnailGenerator("ffmpeg", CreateThumbnailDirectory()),
+            new FfprobeVideoInspector("ffprobe"));
         DataContext = _viewModel;
         Loaded += async (_, _) => await _viewModel.LoadIndexAsync(CancellationToken.None);
+    }
+
+    private static string CreateThumbnailDirectory()
+    {
+        var appData = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "MovieNavigator");
+        return Path.Combine(appData, "thumbnails");
     }
 
     private static IAppLocalizer CreateLocalizer()

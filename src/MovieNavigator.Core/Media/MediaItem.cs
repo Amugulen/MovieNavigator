@@ -19,4 +19,8 @@ public sealed record MediaItem(
     string? Summary,
     IReadOnlyCollection<TagKey> Tags,
     DateTimeOffset CreatedAt,
-    DateTimeOffset UpdatedAt);
+    DateTimeOffset UpdatedAt,
+    string? ThumbnailPath = null,
+    string? Extension = null,
+    DateTimeOffset? LastWriteTimeUtc = null,
+    DateTimeOffset? MissingSince = null);

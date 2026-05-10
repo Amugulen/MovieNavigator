@@ -22,6 +22,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     private readonly IMediaRepository _mediaRepository;
     private readonly IScanRootRepository? _scanRootRepository;
+    private readonly IThumbnailGenerator? _thumbnailGenerator;
+    private readonly IVideoInspector? _videoInspector;
     private readonly string _homeSection;
     private readonly string _normalLibrarySection;
     private readonly string _driveBrowseSection;
@@ -39,10 +41,17 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private ClassificationFacetViewModel? _selectedClassificationFacet;
     private readonly List<MediaCardViewModel> _allMediaCards = [];
 
-    public MainWindowViewModel(IAppLocalizer localizer, IMediaRepository mediaRepository, IScanRootRepository? scanRootRepository = null)
+    public MainWindowViewModel(
+        IAppLocalizer localizer,
+        IMediaRepository mediaRepository,
+        IScanRootRepository? scanRootRepository = null,
+        IThumbnailGenerator? thumbnailGenerator = null,
+        IVideoInspector? videoInspector = null)
     {
         _mediaRepository = mediaRepository;
         _scanRootRepository = scanRootRepository;
+        _thumbnailGenerator = thumbnailGenerator;
+        _videoInspector = videoInspector;
         AppTitle = localizer.Get(LocalizedStrings.AppTitle);
         DetailTitle = localizer.Get(LocalizedStrings.DetailTitle);
         PendingWorkbenchTitle = localizer.Get(LocalizedStrings.PendingWorkbench);
@@ -329,7 +338,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         foreach (var file in files)
         {
             cancellationToken.ThrowIfCancellationRequested();
-            var item = CreateQuickScannedItem(file);
+            var item = await CreateQuickScannedItemAsync(file, cancellationToken);
             await _mediaRepository.UpsertAsync(item, cancellationToken);
             items.Add(item);
             seenPaths.Add(item.FilePath);
@@ -369,11 +378,17 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             string.Equals(normalizedFile, normalizedFolder, StringComparison.OrdinalIgnoreCase);
     }
 
-    private static MediaItem CreateQuickScannedItem(FileInfo file)
+    private async Task<MediaItem> CreateQuickScannedItemAsync(FileInfo file, CancellationToken cancellationToken)
     {
         var now = DateTimeOffset.UtcNow;
         var driveKey = Path.GetPathRoot(file.FullName)?.TrimEnd('\\') ?? "unknown";
         var driveTag = CreateDriveTag(driveKey);
+        var thumbnailPath = _thumbnailGenerator is null
+            ? null
+            : await _thumbnailGenerator.GenerateAsync(file.FullName, cancellationToken);
+        var inspection = _videoInspector is null
+            ? new VideoInspectionResult(TimeSpan.Zero, null, null, null)
+            : await InspectVideoSafelyAsync(file.FullName, cancellationToken);
 
         return new MediaItem(
             Guid.NewGuid(),
@@ -383,16 +398,42 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             file.Name,
             driveKey,
             file.Length,
-            TimeSpan.Zero,
-            null,
-            null,
+            inspection.Duration,
+            inspection.Width,
+            inspection.Height,
             Path.GetFileNameWithoutExtension(file.Name),
             null,
             null,
             null,
             driveTag is null ? Array.Empty<TagKey>() : [driveTag.Value],
             now,
-            now);
+            now,
+            thumbnailPath,
+            file.Extension,
+            file.LastWriteTimeUtc,
+            null);
+    }
+
+    private async Task<VideoInspectionResult> InspectVideoSafelyAsync(string filePath, CancellationToken cancellationToken)
+    {
+        try
+        {
+            return _videoInspector is null
+                ? new VideoInspectionResult(TimeSpan.Zero, null, null, null)
+                : await _videoInspector.InspectAsync(filePath, cancellationToken);
+        }
+        catch (IOException)
+        {
+            return new VideoInspectionResult(TimeSpan.Zero, null, null, null);
+        }
+        catch (InvalidOperationException)
+        {
+            return new VideoInspectionResult(TimeSpan.Zero, null, null, null);
+        }
+        catch (System.ComponentModel.Win32Exception)
+        {
+            return new VideoInspectionResult(TimeSpan.Zero, null, null, null);
+        }
     }
 
     private static TagKey? CreateDriveTag(string driveKey)
@@ -424,7 +465,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 DisplayStatus(item.Status),
                 item.DriveKey,
                 item.Tags.Select(tag => tag.Value).ToArray(),
-                ClassificationFacetBuilder.BuildKeys(item).Select(facet => facet.Key).ToArray()));
+                ClassificationFacetBuilder.BuildKeys(item).Select(facet => facet.Key).ToArray(),
+                item.ThumbnailPath,
+                item.Extension,
+                item.Status == MediaStatus.Offline));
 
             PendingItems.Add(new PendingItemViewModel(item.FileName, item.FilePath, "快速扫描入库，等待补充资料或 ffprobe 分析"));
         }

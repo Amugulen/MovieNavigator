@@ -8,4 +8,7 @@ public sealed record MediaCardViewModel(
     string Status,
     string DriveKey,
     IReadOnlyList<string> Tags,
-    IReadOnlyList<string> ClassificationKeys);
+    IReadOnlyList<string> ClassificationKeys,
+    string? ThumbnailPath = null,
+    string? Extension = null,
+    bool IsMissing = false);

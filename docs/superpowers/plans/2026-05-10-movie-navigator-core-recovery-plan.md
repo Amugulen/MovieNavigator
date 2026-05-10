@@ -348,7 +348,7 @@ git commit -m "feat: build real classification facets"
 - Test: `tests/MovieNavigator.Tests/Video/ThumbnailGeneratorTests.cs`
 - Test: `tests/MovieNavigator.Tests/Persistence/SqliteRepositoryTests.cs`
 
-- [ ] **Step 1: Add thumbnail and file metadata columns**
+- [x] **Step 1: Add thumbnail and file metadata columns**
 
 Add migration-safe columns:
 
@@ -359,11 +359,11 @@ last_write_time_utc TEXT NULL
 missing_since TEXT NULL
 ```
 
-- [ ] **Step 2: Add `ThumbnailPath` to media/card models**
+- [x] **Step 2: Add `ThumbnailPath` to media/card models**
 
 Extend `MediaItem` and `MediaCardViewModel` with nullable `ThumbnailPath`.
 
-- [ ] **Step 3: Generate thumbnails with ffmpeg**
+- [x] **Step 3: Generate thumbnails with ffmpeg**
 
 Create `FfmpegThumbnailGenerator` that runs:
 
@@ -379,7 +379,7 @@ Use app cache directory:
 
 Use a stable file name from SHA256 of the video path.
 
-- [ ] **Step 4: Use ffprobe and ffmpeg during scan**
+- [x] **Step 4: Use ffprobe and ffmpeg during scan**
 
 During scan:
 
@@ -393,7 +393,7 @@ save updated media item
 
 If ffmpeg/ffprobe is not installed or fails, keep the item and show `待分析`, not a crash.
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run:
 
@@ -402,7 +402,7 @@ dotnet test .\tests\MovieNavigator.Tests\MovieNavigator.Tests.csproj --filter Th
 dotnet build .\MovieNavigator.sln -v minimal
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add src tests

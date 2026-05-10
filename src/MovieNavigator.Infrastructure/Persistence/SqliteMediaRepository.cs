@@ -22,8 +22,8 @@ public sealed class SqliteMediaRepository : IMediaRepository
         var upsert = connection.CreateCommand();
         upsert.Transaction = (SqliteTransaction)transaction;
         upsert.CommandText = """
-        INSERT INTO media_items(id, library_type, status, file_path, file_name, drive_key, size_bytes, duration_seconds, width, height, title, original_title, year, summary, created_at, updated_at)
-        VALUES ($id, $libraryType, $status, $filePath, $fileName, $driveKey, $sizeBytes, $durationSeconds, $width, $height, $title, $originalTitle, $year, $summary, $createdAt, $updatedAt)
+        INSERT INTO media_items(id, library_type, status, file_path, file_name, drive_key, size_bytes, duration_seconds, width, height, title, original_title, year, summary, thumbnail_path, extension, last_write_time_utc, missing_since, created_at, updated_at)
+        VALUES ($id, $libraryType, $status, $filePath, $fileName, $driveKey, $sizeBytes, $durationSeconds, $width, $height, $title, $originalTitle, $year, $summary, $thumbnailPath, $extension, $lastWriteTimeUtc, $missingSince, $createdAt, $updatedAt)
         ON CONFLICT(file_path) DO UPDATE SET
             library_type = excluded.library_type,
             status = excluded.status,
@@ -37,6 +37,10 @@ public sealed class SqliteMediaRepository : IMediaRepository
             original_title = excluded.original_title,
             year = excluded.year,
             summary = excluded.summary,
+            thumbnail_path = excluded.thumbnail_path,
+            extension = excluded.extension,
+            last_write_time_utc = excluded.last_write_time_utc,
+            missing_since = excluded.missing_since,
             updated_at = excluded.updated_at;
         """;
         AddMediaParameters(upsert, item);
@@ -79,7 +83,7 @@ public sealed class SqliteMediaRepository : IMediaRepository
         var connection = await _factory.OpenAsync(cancellationToken);
         var command = connection.CreateCommand();
         command.CommandText = """
-        SELECT id, library_type, status, file_path, file_name, drive_key, size_bytes, duration_seconds, width, height, title, original_title, year, summary, created_at, updated_at
+        SELECT id, library_type, status, file_path, file_name, drive_key, size_bytes, duration_seconds, width, height, title, original_title, year, summary, created_at, updated_at, thumbnail_path, extension, last_write_time_utc, missing_since
         FROM media_items
         WHERE library_type = $libraryType
           AND ($includeAdult = 1 OR library_type <> 1)
@@ -95,7 +99,7 @@ public sealed class SqliteMediaRepository : IMediaRepository
         var connection = await _factory.OpenAsync(cancellationToken);
         var command = connection.CreateCommand();
         command.CommandText = """
-        SELECT id, library_type, status, file_path, file_name, drive_key, size_bytes, duration_seconds, width, height, title, original_title, year, summary, created_at, updated_at
+        SELECT id, library_type, status, file_path, file_name, drive_key, size_bytes, duration_seconds, width, height, title, original_title, year, summary, created_at, updated_at, thumbnail_path, extension, last_write_time_utc, missing_since
         FROM media_items
         WHERE file_path = $filePath
         LIMIT 1;
@@ -109,7 +113,7 @@ public sealed class SqliteMediaRepository : IMediaRepository
         var connection = await _factory.OpenAsync(cancellationToken);
         var command = connection.CreateCommand();
         command.CommandText = """
-        SELECT m.id, m.library_type, m.status, m.file_path, m.file_name, m.drive_key, m.size_bytes, m.duration_seconds, m.width, m.height, m.title, m.original_title, m.year, m.summary, m.created_at, m.updated_at
+        SELECT m.id, m.library_type, m.status, m.file_path, m.file_name, m.drive_key, m.size_bytes, m.duration_seconds, m.width, m.height, m.title, m.original_title, m.year, m.summary, m.created_at, m.updated_at, m.thumbnail_path, m.extension, m.last_write_time_utc, m.missing_since
         FROM media_items m
         JOIN media_search s ON s.media_id = m.id
         WHERE s.content MATCH $query
@@ -128,7 +132,7 @@ public sealed class SqliteMediaRepository : IMediaRepository
 
         var fallback = connection.CreateCommand();
         fallback.CommandText = """
-        SELECT m.id, m.library_type, m.status, m.file_path, m.file_name, m.drive_key, m.size_bytes, m.duration_seconds, m.width, m.height, m.title, m.original_title, m.year, m.summary, m.created_at, m.updated_at
+        SELECT m.id, m.library_type, m.status, m.file_path, m.file_name, m.drive_key, m.size_bytes, m.duration_seconds, m.width, m.height, m.title, m.original_title, m.year, m.summary, m.created_at, m.updated_at, m.thumbnail_path, m.extension, m.last_write_time_utc, m.missing_since
         FROM media_items m
         JOIN media_search s ON s.media_id = m.id
         WHERE s.content LIKE $likeQuery
@@ -147,7 +151,7 @@ public sealed class SqliteMediaRepository : IMediaRepository
         var connection = await _factory.OpenAsync(cancellationToken);
         var command = connection.CreateCommand();
         command.CommandText = """
-        SELECT id, library_type, status, file_path, file_name, drive_key, size_bytes, duration_seconds, width, height, title, original_title, year, summary, created_at, updated_at
+        SELECT id, library_type, status, file_path, file_name, drive_key, size_bytes, duration_seconds, width, height, title, original_title, year, summary, created_at, updated_at, thumbnail_path, extension, last_write_time_utc, missing_since
         FROM media_items
         WHERE drive_key = $driveKey AND library_type = $libraryType
         ORDER BY file_path;
@@ -164,10 +168,12 @@ public sealed class SqliteMediaRepository : IMediaRepository
         command.CommandText = """
         UPDATE media_items
         SET status = $status,
+            missing_since = $missingSince,
             updated_at = $updatedAt
         WHERE file_path = $filePath;
         """;
         command.Parameters.AddWithValue("$status", (int)MediaStatus.Offline);
+        command.Parameters.AddWithValue("$missingSince", missingSince.ToString("O"));
         command.Parameters.AddWithValue("$updatedAt", missingSince.ToString("O"));
         command.Parameters.AddWithValue("$filePath", filePath);
         await command.ExecuteNonQueryAsync(cancellationToken);
@@ -189,6 +195,10 @@ public sealed class SqliteMediaRepository : IMediaRepository
         command.Parameters.AddWithValue("$originalTitle", (object?)item.OriginalTitle ?? DBNull.Value);
         command.Parameters.AddWithValue("$year", (object?)item.Year ?? DBNull.Value);
         command.Parameters.AddWithValue("$summary", (object?)item.Summary ?? DBNull.Value);
+        command.Parameters.AddWithValue("$thumbnailPath", (object?)item.ThumbnailPath ?? DBNull.Value);
+        command.Parameters.AddWithValue("$extension", (object?)item.Extension ?? DBNull.Value);
+        command.Parameters.AddWithValue("$lastWriteTimeUtc", (object?)item.LastWriteTimeUtc?.ToString("O") ?? DBNull.Value);
+        command.Parameters.AddWithValue("$missingSince", (object?)item.MissingSince?.ToString("O") ?? DBNull.Value);
         command.Parameters.AddWithValue("$createdAt", item.CreatedAt.ToString("O"));
         command.Parameters.AddWithValue("$updatedAt", item.UpdatedAt.ToString("O"));
     }
@@ -252,7 +262,11 @@ public sealed class SqliteMediaRepository : IMediaRepository
                 reader.IsDBNull(13) ? null : reader.GetString(13),
                 await ReadTagsAsync(connection, reader.GetString(0), cancellationToken),
                 DateTimeOffset.Parse(reader.GetString(14)),
-                DateTimeOffset.Parse(reader.GetString(15))));
+                DateTimeOffset.Parse(reader.GetString(15)),
+                reader.IsDBNull(16) ? null : reader.GetString(16),
+                reader.IsDBNull(17) ? null : reader.GetString(17),
+                reader.IsDBNull(18) ? null : DateTimeOffset.Parse(reader.GetString(18)),
+                reader.IsDBNull(19) ? null : DateTimeOffset.Parse(reader.GetString(19))));
         }
 
         return items;

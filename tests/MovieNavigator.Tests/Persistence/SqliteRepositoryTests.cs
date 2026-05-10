@@ -75,6 +75,35 @@ public sealed class SqliteRepositoryTests
         results[0].FilePath.Should().Be(item.FilePath);
     }
 
+    [Fact]
+    public async Task Save_and_load_media_thumbnail_and_file_metadata()
+    {
+        await using var factory = SqliteConnectionFactory.InMemory();
+        await DatabaseInitializer.InitializeAsync(factory, CancellationToken.None);
+        var repository = new SqliteMediaRepository(factory);
+        var lastWrite = DateTimeOffset.Parse("2026-05-10T08:00:00+00:00");
+        var missingSince = DateTimeOffset.Parse("2026-05-10T09:00:00+00:00");
+        var item = CreateMediaItem(@"D:\Movies\film.mkv", "film.mkv", "Film", [])
+            with
+            {
+                ThumbnailPath = @"C:\Users\asus\AppData\Local\MovieNavigator\thumbnails\film.jpg",
+                Extension = ".mkv",
+                LastWriteTimeUtc = lastWrite,
+                MissingSince = missingSince
+            };
+
+        await repository.UpsertAsync(item, CancellationToken.None);
+
+        var loaded = await repository.GetByPathAsync(item.FilePath, CancellationToken.None);
+
+        loaded.Should().NotBeNull();
+        loaded!.ThumbnailPath.Should().Be(item.ThumbnailPath);
+        loaded.Extension.Should().Be(".mkv");
+        loaded.LastWriteTimeUtc.Should().Be(lastWrite);
+        loaded.MissingSince.Should().Be(missingSince);
+    }
+
+
     private static MediaItem CreateMediaItem(string filePath, string fileName, string title, IReadOnlyCollection<TagKey> tags)
     {
         var now = DateTimeOffset.UtcNow;
