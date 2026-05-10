@@ -1,0 +1,17 @@
+{
+  "App.Title": "本地影视资料库",
+  "Nav.Home": "首页",
+  "Nav.NormalLibrary": "普通库",
+  "Nav.DriveBrowse": "按硬盘浏览",
+  "Nav.TagIndex": "TAG索引",
+  "Nav.Pending": "待确认",
+  "Nav.Settings": "设置",
+  "Nav.AdultLocked": "成人库（锁定）",
+  "Detail.Title": "影片详情",
+  "Action.OpenDefaultPlayer": "默认播放器打开",
+  "Action.OpenFolder": "打开所在目录",
+  "Action.MoveOrganize": "移动/整理",
+  "Action.Rescan": "重新识别",
+  "Action.AddTag": "添加TAG",
+  "Pending.Workbench": "待确认工作台"
+}

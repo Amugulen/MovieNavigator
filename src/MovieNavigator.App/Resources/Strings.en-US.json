@@ -1,0 +1,17 @@
+{
+  "App.Title": "Local Media Library",
+  "Nav.Home": "Home",
+  "Nav.NormalLibrary": "Normal Library",
+  "Nav.DriveBrowse": "Browse by Drive",
+  "Nav.TagIndex": "TAG Index",
+  "Nav.Pending": "Pending",
+  "Nav.Settings": "Settings",
+  "Nav.AdultLocked": "Adult Library (Locked)",
+  "Detail.Title": "Media Details",
+  "Action.OpenDefaultPlayer": "Open with default player",
+  "Action.OpenFolder": "Open folder",
+  "Action.MoveOrganize": "Move / Organize",
+  "Action.Rescan": "Rescan",
+  "Action.AddTag": "Add TAG",
+  "Pending.Workbench": "Pending Workbench"
+}

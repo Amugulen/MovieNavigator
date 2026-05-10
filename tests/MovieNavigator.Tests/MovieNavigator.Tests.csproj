@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net8.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
@@ -24,6 +24,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\MovieNavigator.Core\MovieNavigator.Core.csproj" />
     <ProjectReference Include="..\..\src\MovieNavigator.Infrastructure\MovieNavigator.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\MovieNavigator.App\MovieNavigator.App.csproj" />
   </ItemGroup>
 
 </Project>
