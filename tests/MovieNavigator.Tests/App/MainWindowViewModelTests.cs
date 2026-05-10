@@ -30,6 +30,32 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task Selecting_classification_facet_filters_media_cards()
+    {
+        var repository = new InMemoryMediaRepository();
+        await repository.UpsertAsync(CreateMediaItem(
+            @"D:\Movies\War\film.mkv",
+            "film.mkv",
+            "War Film",
+            [MovieNavigator.Core.Tags.TagKey.Parse("genre.war")]), CancellationToken.None);
+        await repository.UpsertAsync(CreateMediaItem(
+            @"D:\Movies\Family\family.mp4",
+            "family.mp4",
+            "Family Film",
+            []), CancellationToken.None);
+        var viewModel = new MainWindowViewModel(new PassThroughLocalizer(), repository);
+
+        await viewModel.LoadIndexAsync(CancellationToken.None);
+        viewModel.ClassificationFacets.Should().Contain(facet => facet.Key == "type.mkv" && facet.Count == 1);
+
+        viewModel.SelectedClassificationFacet = viewModel.ClassificationFacets.Single(facet => facet.Key == "type.mkv");
+
+        viewModel.MediaCards.Should().ContainSingle();
+        viewModel.MediaCards[0].Title.Should().Be("War Film");
+        viewModel.ResultSummary.Should().Contain("1");
+    }
+
+    [Fact]
     public async Task Quick_scan_saves_root_and_incremental_scan_all_roots_reuses_it()
     {
         using var temp = new TemporaryVideoFolder();

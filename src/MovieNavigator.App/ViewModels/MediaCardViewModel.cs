@@ -7,4 +7,5 @@ public sealed record MediaCardViewModel(
     string Resolution,
     string Status,
     string DriveKey,
-    IReadOnlyList<string> Tags);
+    IReadOnlyList<string> Tags,
+    IReadOnlyList<string> ClassificationKeys);

@@ -4,6 +4,7 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using MovieNavigator.App.Localization;
 using MovieNavigator.Core.Abstractions;
+using MovieNavigator.Core.Classification;
 using MovieNavigator.Core.Indexing;
 using MovieNavigator.Core.Media;
 using MovieNavigator.Core.Tags;
@@ -35,6 +36,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private MediaCardViewModel? _selectedMedia;
     private DriveItemViewModel? _selectedDrive;
     private TagNodeViewModel? _selectedTag;
+    private ClassificationFacetViewModel? _selectedClassificationFacet;
     private readonly List<MediaCardViewModel> _allMediaCards = [];
 
     public MainWindowViewModel(IAppLocalizer localizer, IMediaRepository mediaRepository, IScanRootRepository? scanRootRepository = null)
@@ -96,6 +98,8 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public ObservableCollection<PendingItemViewModel> PendingItems { get; } = [];
 
+    public ObservableCollection<ClassificationFacetViewModel> ClassificationFacets { get; } = [];
+
     public MediaCardViewModel? SelectedMedia
     {
         get => _selectedMedia;
@@ -150,6 +154,22 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
             _selectedTag = value;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedTag)));
+            ApplyFilters();
+        }
+    }
+
+    public ClassificationFacetViewModel? SelectedClassificationFacet
+    {
+        get => _selectedClassificationFacet;
+        set
+        {
+            if (EqualityComparer<ClassificationFacetViewModel?>.Default.Equals(_selectedClassificationFacet, value))
+            {
+                return;
+            }
+
+            _selectedClassificationFacet = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedClassificationFacet)));
             ApplyFilters();
         }
     }
@@ -392,6 +412,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         MediaCards.Clear();
         PendingItems.Clear();
         DriveItems.Clear();
+        ClassificationFacets.Clear();
 
         foreach (var item in items.OrderBy(item => item.FilePath))
         {
@@ -400,9 +421,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 item.FilePath,
                 item.Duration == TimeSpan.Zero ? "时长待分析" : item.Duration.ToString(@"hh\:mm\:ss"),
                 item.Width is null || item.Height is null ? "分辨率待分析" : $"{item.Width}x{item.Height}",
-                "待补充",
+                DisplayStatus(item.Status),
                 item.DriveKey,
-                item.Tags.Select(tag => tag.Value).ToArray()));
+                item.Tags.Select(tag => tag.Value).ToArray(),
+                ClassificationFacetBuilder.BuildKeys(item).Select(facet => facet.Key).ToArray()));
 
             PendingItems.Add(new PendingItemViewModel(item.FileName, item.FilePath, "快速扫描入库，等待补充资料或 ffprobe 分析"));
         }
@@ -410,6 +432,11 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         foreach (var group in items.GroupBy(item => item.DriveKey).OrderBy(group => group.Key))
         {
             DriveItems.Add(new DriveItemViewModel(group.Key, $"{group.Key} {group.Count()}部"));
+        }
+
+        foreach (var facet in ClassificationFacetBuilder.Build(items))
+        {
+            ClassificationFacets.Add(new ClassificationFacetViewModel(facet.Key, facet.DisplayName, facet.Group, facet.Count));
         }
 
         ApplyFilters();
@@ -420,11 +447,13 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         var query = _searchText.Trim();
         var selectedDriveKey = SelectedDrive?.Key;
         var selectedTagKey = SelectedTag?.Key;
+        var selectedFacetKey = SelectedClassificationFacet?.Key;
 
         var filtered = _allMediaCards.Where(card =>
             MatchesSearch(card, query) &&
             (selectedDriveKey is null || string.Equals(card.DriveKey, selectedDriveKey, StringComparison.OrdinalIgnoreCase)) &&
-            (selectedTagKey is null || card.Tags.Any(tag => string.Equals(tag, selectedTagKey, StringComparison.OrdinalIgnoreCase))))
+            (selectedTagKey is null || card.Tags.Any(tag => string.Equals(tag, selectedTagKey, StringComparison.OrdinalIgnoreCase))) &&
+            (selectedFacetKey is null || card.ClassificationKeys.Any(key => string.Equals(key, selectedFacetKey, StringComparison.OrdinalIgnoreCase))))
             .ToList();
 
         MediaCards.Clear();
@@ -440,7 +469,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
             return;
         }
 
-        if (query.Length > 0 || selectedDriveKey is not null || selectedTagKey is not null)
+        if (query.Length > 0 || selectedDriveKey is not null || selectedTagKey is not null || selectedFacetKey is not null)
         {
             ResultSummary = $"筛选结果：{filtered.Count} / {_allMediaCards.Count} 个视频";
             return;
@@ -513,10 +542,24 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         _searchText = string.Empty;
         _selectedDrive = null;
         _selectedTag = null;
+        _selectedClassificationFacet = null;
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SearchText)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedDrive)));
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedTag)));
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedClassificationFacet)));
         ApplyFilters();
+    }
+
+    private static string DisplayStatus(MediaStatus status)
+    {
+        return status switch
+        {
+            MediaStatus.Pending => "待确认",
+            MediaStatus.Confirmed => "已确认",
+            MediaStatus.Ignored => "已忽略",
+            MediaStatus.Offline => "离线",
+            _ => status.ToString()
+        };
     }
 
     private void SetField<T>(ref T field, T value, [CallerMemberName] string? propertyName = null)

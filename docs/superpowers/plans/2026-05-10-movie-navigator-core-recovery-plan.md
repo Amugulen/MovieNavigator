@@ -273,7 +273,7 @@ git commit -m "feat: add scan roots and incremental scanning"
 - Modify: `src/MovieNavigator.App/MainWindow.xaml`
 - Test: `tests/MovieNavigator.Tests/Classification/ClassificationFacetBuilderTests.cs`
 
-- [ ] **Step 1: Write tests for facets**
+- [x] **Step 1: Write tests for facets**
 
 Create tests proving the builder returns:
 
@@ -289,7 +289,7 @@ country.soviet_union
 
 from media rows containing those properties or TAGs.
 
-- [ ] **Step 2: Implement facet model**
+- [x] **Step 2: Implement facet model**
 
 ```csharp
 public sealed record ClassificationFacet(
@@ -299,11 +299,11 @@ public sealed record ClassificationFacet(
     int Count);
 ```
 
-- [ ] **Step 3: Implement facet builder**
+- [x] **Step 3: Implement facet builder**
 
 Build facets from indexed media. Do not invent movie countries from filenames in this task. Only use explicit `MediaItem.Tags`, file extension, drive, duration, resolution, and status.
 
-- [ ] **Step 4: Bind facets in UI**
+- [x] **Step 4: Bind facets in UI**
 
 Replace separate fake drive/TAG lists with a single grouped classification list or two real sections:
 
@@ -319,7 +319,7 @@ TAG
 
 Clicking a facet filters the card list and updates `ResultSummary`.
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run:
 
@@ -328,7 +328,7 @@ dotnet test .\tests\MovieNavigator.Tests\MovieNavigator.Tests.csproj --filter Cl
 dotnet test .\tests\MovieNavigator.Tests\MovieNavigator.Tests.csproj -v minimal
 ```
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add src tests
