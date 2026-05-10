@@ -454,7 +454,7 @@ Default to thumbnail grid. Use `WrapPanel` or `UniformGrid` inside an `ItemsCont
 
 If `ThumbnailPath` is null or missing, show a styled placeholder containing extension and title. Do not show a broken image icon.
 
-- [x] **Step 5: Verify manually**
+- [ ] **Step 5: Verify manually**
 
 Manual checks:
 
