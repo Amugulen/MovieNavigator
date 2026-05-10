@@ -1,1 +1,4 @@
 .worktrees/
+.dotnet-home/
+bin/
+obj/
