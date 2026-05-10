@@ -23,6 +23,7 @@ This plan produces working software on its own:
 - Items can be browsed by drive and directory.
 - Adult library data remains locked and invisible until password unlock.
 - Users can add/edit TAGs and mark items as confirmed or pending.
+- UI fixed text has a `zh-CN`/`en-US` localization hook instead of being locked to one language.
 - Users can open a file with the default player.
 - Move/copy/rename operations are planned, confirmed, executed, and logged.
 
@@ -74,6 +75,11 @@ src/MovieNavigator.App/ViewModels/MainWindowViewModel.cs
 src/MovieNavigator.App/ViewModels/MediaCardViewModel.cs
 src/MovieNavigator.App/ViewModels/TagNodeViewModel.cs
 src/MovieNavigator.App/ViewModels/PendingItemViewModel.cs
+src/MovieNavigator.App/Localization/IAppLocalizer.cs
+src/MovieNavigator.App/Localization/JsonAppLocalizer.cs
+src/MovieNavigator.App/Localization/LocalizedStrings.cs
+src/MovieNavigator.App/Resources/Strings.zh-CN.json
+src/MovieNavigator.App/Resources/Strings.en-US.json
 src/MovieNavigator.App/Services/AppBootstrapper.cs
 src/MovieNavigator.App/Services/DialogService.cs
 tests/MovieNavigator.Tests/MovieNavigator.Tests.csproj
@@ -85,6 +91,7 @@ tests/MovieNavigator.Tests/Search/SearchTests.cs
 tests/MovieNavigator.Tests/Security/PasswordHasherTests.cs
 tests/MovieNavigator.Tests/Security/AdultVaultVisibilityTests.cs
 tests/MovieNavigator.Tests/FileOperations/FileOperationPlannerTests.cs
+tests/MovieNavigator.Tests/Localization/JsonAppLocalizerTests.cs
 tests/MovieNavigator.Tests/TestDoubles/FakeFileSystem.cs
 tests/MovieNavigator.Tests/TestDoubles/FakeVideoInspector.cs
 tests/MovieNavigator.Tests/TestDoubles/FakeClock.cs
@@ -1695,7 +1702,230 @@ git add src/MovieNavigator.Core/Abstractions src/MovieNavigator.Infrastructure
 git commit -m "feat: add windows integration adapters"
 ```
 
-## Task 8: Add WPF Shell and Main Workflows
+## Task 8: Add Localization Foundation
+
+**Files:**
+- Create: `src/MovieNavigator.App/Localization/IAppLocalizer.cs`
+- Create: `src/MovieNavigator.App/Localization/JsonAppLocalizer.cs`
+- Create: `src/MovieNavigator.App/Localization/LocalizedStrings.cs`
+- Create: `src/MovieNavigator.App/Resources/Strings.zh-CN.json`
+- Create: `src/MovieNavigator.App/Resources/Strings.en-US.json`
+- Modify: `src/MovieNavigator.App/MovieNavigator.App.csproj`
+- Test: `tests/MovieNavigator.Tests/Localization/JsonAppLocalizerTests.cs`
+
+- [ ] **Step 1: Write failing localizer tests**
+
+Create `tests/MovieNavigator.Tests/Localization/JsonAppLocalizerTests.cs`:
+
+```csharp
+using FluentAssertions;
+using MovieNavigator.App.Localization;
+
+namespace MovieNavigator.Tests.Localization;
+
+public sealed class JsonAppLocalizerTests
+{
+    [Fact]
+    public void Get_returns_current_culture_text()
+    {
+        var localizer = JsonAppLocalizer.FromDictionaries(
+            "zh-CN",
+            new Dictionary<string, IReadOnlyDictionary<string, string>>
+            {
+                ["zh-CN"] = new Dictionary<string, string> { ["Nav.Home"] = "首页" },
+                ["en-US"] = new Dictionary<string, string> { ["Nav.Home"] = "Home" }
+            });
+
+        localizer.Get("Nav.Home").Should().Be("首页");
+    }
+
+    [Fact]
+    public void Get_falls_back_to_english_then_key()
+    {
+        var localizer = JsonAppLocalizer.FromDictionaries(
+            "zh-CN",
+            new Dictionary<string, IReadOnlyDictionary<string, string>>
+            {
+                ["zh-CN"] = new Dictionary<string, string>(),
+                ["en-US"] = new Dictionary<string, string> { ["Action.OpenDefaultPlayer"] = "Open with default player" }
+            });
+
+        localizer.Get("Action.OpenDefaultPlayer").Should().Be("Open with default player");
+        localizer.Get("Missing.Key").Should().Be("Missing.Key");
+    }
+}
+```
+
+- [ ] **Step 2: Add localizer code**
+
+Create `src/MovieNavigator.App/Localization/IAppLocalizer.cs`:
+
+```csharp
+namespace MovieNavigator.App.Localization;
+
+public interface IAppLocalizer
+{
+    string CultureName { get; }
+    string Get(string key);
+}
+```
+
+Create `src/MovieNavigator.App/Localization/LocalizedStrings.cs`:
+
+```csharp
+namespace MovieNavigator.App.Localization;
+
+public static class LocalizedStrings
+{
+    public const string AppTitle = "App.Title";
+    public const string NavHome = "Nav.Home";
+    public const string NavNormalLibrary = "Nav.NormalLibrary";
+    public const string NavDriveBrowse = "Nav.DriveBrowse";
+    public const string NavTagIndex = "Nav.TagIndex";
+    public const string NavPending = "Nav.Pending";
+    public const string NavSettings = "Nav.Settings";
+    public const string NavAdultLocked = "Nav.AdultLocked";
+    public const string DetailTitle = "Detail.Title";
+    public const string ActionOpenDefaultPlayer = "Action.OpenDefaultPlayer";
+    public const string ActionOpenFolder = "Action.OpenFolder";
+    public const string ActionMoveOrganize = "Action.MoveOrganize";
+    public const string ActionRescan = "Action.Rescan";
+    public const string ActionAddTag = "Action.AddTag";
+    public const string PendingWorkbench = "Pending.Workbench";
+}
+```
+
+Create `src/MovieNavigator.App/Localization/JsonAppLocalizer.cs`:
+
+```csharp
+using System.Text.Json;
+
+namespace MovieNavigator.App.Localization;
+
+public sealed class JsonAppLocalizer : IAppLocalizer
+{
+    private readonly IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> _resources;
+
+    private JsonAppLocalizer(string cultureName, IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> resources)
+    {
+        CultureName = cultureName;
+        _resources = resources;
+    }
+
+    public string CultureName { get; }
+
+    public static JsonAppLocalizer FromDictionaries(string cultureName, IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> resources)
+    {
+        return new JsonAppLocalizer(cultureName, resources);
+    }
+
+    public static async Task<JsonAppLocalizer> LoadAsync(string resourcesDirectory, string cultureName, CancellationToken cancellationToken)
+    {
+        var resources = new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.OrdinalIgnoreCase);
+        foreach (var culture in new[] { "zh-CN", "en-US" })
+        {
+            var path = Path.Combine(resourcesDirectory, $"Strings.{culture}.json");
+            await using var stream = File.OpenRead(path);
+            var values = await JsonSerializer.DeserializeAsync<Dictionary<string, string>>(stream, cancellationToken: cancellationToken);
+            resources[culture] = values ?? new Dictionary<string, string>();
+        }
+
+        return new JsonAppLocalizer(cultureName, resources);
+    }
+
+    public string Get(string key)
+    {
+        if (_resources.TryGetValue(CultureName, out var current) && current.TryGetValue(key, out var localized))
+        {
+            return localized;
+        }
+
+        if (_resources.TryGetValue("en-US", out var english) && english.TryGetValue(key, out var fallback))
+        {
+            return fallback;
+        }
+
+        return key;
+    }
+}
+```
+
+- [ ] **Step 3: Add initial resources**
+
+Create `src/MovieNavigator.App/Resources/Strings.zh-CN.json`:
+
+```json
+{
+  "App.Title": "本地影视资料库",
+  "Nav.Home": "首页",
+  "Nav.NormalLibrary": "普通库",
+  "Nav.DriveBrowse": "按硬盘浏览",
+  "Nav.TagIndex": "TAG索引",
+  "Nav.Pending": "待确认",
+  "Nav.Settings": "设置",
+  "Nav.AdultLocked": "成人库（锁定）",
+  "Detail.Title": "影片详情",
+  "Action.OpenDefaultPlayer": "默认播放器打开",
+  "Action.OpenFolder": "打开所在目录",
+  "Action.MoveOrganize": "移动/整理",
+  "Action.Rescan": "重新识别",
+  "Action.AddTag": "添加TAG",
+  "Pending.Workbench": "待确认工作台"
+}
+```
+
+Create `src/MovieNavigator.App/Resources/Strings.en-US.json`:
+
+```json
+{
+  "App.Title": "Local Media Library",
+  "Nav.Home": "Home",
+  "Nav.NormalLibrary": "Normal Library",
+  "Nav.DriveBrowse": "Browse by Drive",
+  "Nav.TagIndex": "TAG Index",
+  "Nav.Pending": "Pending",
+  "Nav.Settings": "Settings",
+  "Nav.AdultLocked": "Adult Library (Locked)",
+  "Detail.Title": "Media Details",
+  "Action.OpenDefaultPlayer": "Open with default player",
+  "Action.OpenFolder": "Open folder",
+  "Action.MoveOrganize": "Move / Organize",
+  "Action.Rescan": "Rescan",
+  "Action.AddTag": "Add TAG",
+  "Pending.Workbench": "Pending Workbench"
+}
+```
+
+- [ ] **Step 4: Copy resources to app output**
+
+Add this item group to `src/MovieNavigator.App/MovieNavigator.App.csproj`:
+
+```xml
+<ItemGroup>
+  <Content Include="Resources\Strings.*.json">
+    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+  </Content>
+</ItemGroup>
+```
+
+- [ ] **Step 5: Run localizer tests**
+
+Run:
+
+```powershell
+dotnet test tests/MovieNavigator.Tests/MovieNavigator.Tests.csproj --filter JsonAppLocalizerTests
+```
+
+Expected: all tests pass.
+
+- [ ] **Step 6: Commit**
+
+```powershell
+git add src/MovieNavigator.App/Localization src/MovieNavigator.App/Resources src/MovieNavigator.App/MovieNavigator.App.csproj tests/MovieNavigator.Tests/Localization
+git commit -m "feat: add localization foundation"
+```
+
+## Task 9: Add WPF Shell and Main Workflows
 
 **Files:**
 - Modify: `src/MovieNavigator.App/App.xaml`
@@ -1748,6 +1978,7 @@ Create `src/MovieNavigator.App/ViewModels/MainWindowViewModel.cs`:
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Runtime.CompilerServices;
+using MovieNavigator.App.Localization;
 
 namespace MovieNavigator.App.ViewModels;
 
@@ -1756,16 +1987,39 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private string _searchText = string.Empty;
     private string _selectedSection = "首页";
 
-    public ObservableCollection<string> NavigationItems { get; } =
-    [
-        "首页",
-        "普通库",
-        "按硬盘浏览",
-        "TAG索引",
-        "待确认",
-        "设置",
-        "成人库（锁定）"
-    ];
+    public MainWindowViewModel(IAppLocalizer localizer)
+    {
+        AppTitle = localizer.Get(LocalizedStrings.AppTitle);
+        DetailTitle = localizer.Get(LocalizedStrings.DetailTitle);
+        PendingWorkbenchTitle = localizer.Get(LocalizedStrings.PendingWorkbench);
+        OpenDefaultPlayerText = localizer.Get(LocalizedStrings.ActionOpenDefaultPlayer);
+        OpenFolderText = localizer.Get(LocalizedStrings.ActionOpenFolder);
+        MoveOrganizeText = localizer.Get(LocalizedStrings.ActionMoveOrganize);
+        RescanText = localizer.Get(LocalizedStrings.ActionRescan);
+        AddTagText = localizer.Get(LocalizedStrings.ActionAddTag);
+
+        NavigationItems =
+        [
+            localizer.Get(LocalizedStrings.NavHome),
+            localizer.Get(LocalizedStrings.NavNormalLibrary),
+            localizer.Get(LocalizedStrings.NavDriveBrowse),
+            localizer.Get(LocalizedStrings.NavTagIndex),
+            localizer.Get(LocalizedStrings.NavPending),
+            localizer.Get(LocalizedStrings.NavSettings),
+            localizer.Get(LocalizedStrings.NavAdultLocked)
+        ];
+    }
+
+    public string AppTitle { get; }
+    public string DetailTitle { get; }
+    public string PendingWorkbenchTitle { get; }
+    public string OpenDefaultPlayerText { get; }
+    public string OpenFolderText { get; }
+    public string MoveOrganizeText { get; }
+    public string RescanText { get; }
+    public string AddTagText { get; }
+
+    public ObservableCollection<string> NavigationItems { get; }
 
     public ObservableCollection<string> DriveItems { get; } =
     [
@@ -1828,7 +2082,7 @@ Replace `src/MovieNavigator.App/MainWindow.xaml`:
 <Window x:Class="MovieNavigator.App.MainWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="本地影视资料库" Height="820" Width="1280"
+        Title="{Binding AppTitle}" Height="820" Width="1280"
         Background="#111827">
     <Grid Margin="16">
         <Grid.ColumnDefinitions>
@@ -1842,7 +2096,7 @@ Replace `src/MovieNavigator.App/MainWindow.xaml`:
             <RowDefinition Height="170" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.ColumnSpan="3" Text="本地影视资料库" Foreground="#F9FAFB" FontSize="28" FontWeight="SemiBold" VerticalAlignment="Center" />
+        <TextBlock Grid.ColumnSpan="3" Text="{Binding AppTitle}" Foreground="#F9FAFB" FontSize="28" FontWeight="SemiBold" VerticalAlignment="Center" />
 
         <Border Grid.Row="1" Grid.RowSpan="2" Background="#1F2937" CornerRadius="14" Padding="12" Margin="0,0,12,0">
             <StackPanel>
@@ -1887,24 +2141,24 @@ Replace `src/MovieNavigator.App/MainWindow.xaml`:
 
         <Border Grid.Column="2" Grid.Row="1" Background="#1F2937" CornerRadius="14" Padding="16" Margin="0,0,0,12">
             <StackPanel>
-                <TextBlock Text="影片详情" Foreground="#F9FAFB" FontSize="22" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding DetailTitle}" Foreground="#F9FAFB" FontSize="22" FontWeight="SemiBold" />
                 <TextBlock Text="路径：D:\Movies\example.mkv" Foreground="#D1D5DB" Margin="0,16,0,0" TextWrapping="Wrap" />
                 <TextBlock Text="时长：02:14:36" Foreground="#D1D5DB" />
                 <TextBlock Text="分辨率：1080p" Foreground="#D1D5DB" />
                 <TextBlock Text="导演：待确认" Foreground="#D1D5DB" />
                 <TextBlock Text="国家：苏联" Foreground="#D1D5DB" />
                 <TextBlock Text="TAG：country.soviet_union" Foreground="#FBBF24" Margin="0,8,0,16" />
-                <Button Content="默认播放器打开" Margin="0,0,0,8" />
-                <Button Content="打开所在目录" Margin="0,0,0,8" />
-                <Button Content="移动/整理" Margin="0,0,0,8" />
-                <Button Content="重新识别" Margin="0,0,0,8" />
-                <Button Content="添加TAG" />
+                <Button Content="{Binding OpenDefaultPlayerText}" Margin="0,0,0,8" />
+                <Button Content="{Binding OpenFolderText}" Margin="0,0,0,8" />
+                <Button Content="{Binding MoveOrganizeText}" Margin="0,0,0,8" />
+                <Button Content="{Binding RescanText}" Margin="0,0,0,8" />
+                <Button Content="{Binding AddTagText}" />
             </StackPanel>
         </Border>
 
         <Border Grid.Column="1" Grid.ColumnSpan="2" Grid.Row="2" Background="#1F2937" CornerRadius="14" Padding="16">
             <StackPanel>
-                <TextBlock Text="待确认工作台" Foreground="#F9FAFB" FontSize="20" FontWeight="SemiBold" />
+                <TextBlock Text="{Binding PendingWorkbenchTitle}" Foreground="#F9FAFB" FontSize="20" FontWeight="SemiBold" />
                 <TextBlock Text="填写线索：标题 / 番号 / 导演 / 介绍网址 -> AI文本分类 -> 用户确认后入库" Foreground="#D1D5DB" Margin="0,8,0,8" />
                 <ListBox ItemsSource="{Binding PendingItems}" DisplayMemberPath="HintText" Height="72" Background="#0F172A" Foreground="#F9FAFB" BorderThickness="0" />
             </StackPanel>
@@ -1919,6 +2173,7 @@ Replace `src/MovieNavigator.App/MainWindow.xaml.cs`:
 
 ```csharp
 using System.Windows;
+using MovieNavigator.App.Localization;
 using MovieNavigator.App.ViewModels;
 
 namespace MovieNavigator.App;
@@ -1928,7 +2183,31 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
-        DataContext = new MainWindowViewModel();
+        var localizer = JsonAppLocalizer.FromDictionaries(
+            "zh-CN",
+            new Dictionary<string, IReadOnlyDictionary<string, string>>
+            {
+                ["zh-CN"] = new Dictionary<string, string>
+                {
+                    [LocalizedStrings.AppTitle] = "本地影视资料库",
+                    [LocalizedStrings.NavHome] = "首页",
+                    [LocalizedStrings.NavNormalLibrary] = "普通库",
+                    [LocalizedStrings.NavDriveBrowse] = "按硬盘浏览",
+                    [LocalizedStrings.NavTagIndex] = "TAG索引",
+                    [LocalizedStrings.NavPending] = "待确认",
+                    [LocalizedStrings.NavSettings] = "设置",
+                    [LocalizedStrings.NavAdultLocked] = "成人库（锁定）",
+                    [LocalizedStrings.DetailTitle] = "影片详情",
+                    [LocalizedStrings.ActionOpenDefaultPlayer] = "默认播放器打开",
+                    [LocalizedStrings.ActionOpenFolder] = "打开所在目录",
+                    [LocalizedStrings.ActionMoveOrganize] = "移动/整理",
+                    [LocalizedStrings.ActionRescan] = "重新识别",
+                    [LocalizedStrings.ActionAddTag] = "添加TAG",
+                    [LocalizedStrings.PendingWorkbench] = "待确认工作台"
+                },
+                ["en-US"] = new Dictionary<string, string>()
+            });
+        DataContext = new MainWindowViewModel(localizer);
     }
 }
 ```
@@ -1951,7 +2230,7 @@ git add src/MovieNavigator.App
 git commit -m "feat: add MVP desktop shell"
 ```
 
-## Task 9: Add Search, Drive Browse, and Adult Visibility Integration
+## Task 10: Add Search, Drive Browse, and Adult Visibility Integration
 
 **Files:**
 - Modify: `src/MovieNavigator.App/ViewModels/MainWindowViewModel.cs`
@@ -2080,7 +2359,7 @@ git add src/MovieNavigator.App tests/MovieNavigator.Tests/Search
 git commit -m "feat: wire app database and search visibility"
 ```
 
-## Task 10: Add README and First-Run Notes
+## Task 11: Add README and First-Run Notes
 
 **Files:**
 - Create: `README.md`
@@ -2099,6 +2378,7 @@ Movie Navigator is a Windows personal local media indexer for managing large mov
 - Local video scanning with duration and size thresholds.
 - SQLite index with full-text search.
 - Hierarchical TAG model using stable English keys and multilingual display names.
+- Localization foundation with `zh-CN` and `en-US` resource files.
 - Drive and directory browsing.
 - Pending confirmation workbench for unidentified media.
 - Adult library isolation design with password-based unlock.
@@ -2145,7 +2425,7 @@ git add README.md
 git commit -m "docs: add project README"
 ```
 
-## Task 11: Push MVP Plan and Prepare Execution
+## Task 12: Push MVP Plan and Prepare Execution
 
 **Files:**
 - No code files.
@@ -2184,6 +2464,7 @@ Implemented MVP foundation:
 - Scan rules and media scanner
 - SQLite repository and FTS search
 - Hierarchical TAG domain model
+- Localization foundation
 - Adult vault password/visibility rules
 - Safe file operation planning
 - Windows adapters for filesystem, default-player open, and ffprobe
