@@ -14,7 +14,10 @@ public partial class MainWindow : Window
     public MainWindow(SqliteConnectionFactory databaseFactory)
     {
         InitializeComponent();
-        _viewModel = new MainWindowViewModel(CreateLocalizer(), new SqliteMediaRepository(databaseFactory));
+        _viewModel = new MainWindowViewModel(
+            CreateLocalizer(),
+            new SqliteMediaRepository(databaseFactory),
+            new SqliteScanRootRepository(databaseFactory));
         DataContext = _viewModel;
         Loaded += async (_, _) => await _viewModel.LoadIndexAsync(CancellationToken.None);
     }
@@ -61,6 +64,11 @@ public partial class MainWindow : Window
         }
 
         await _viewModel.QuickScanFolderAsync(dialog.SelectedPath, CancellationToken.None);
+    }
+
+    private async void IncrementalScanAllRootsButton_Click(object sender, RoutedEventArgs e)
+    {
+        await _viewModel.IncrementalScanAllRootsAsync(CancellationToken.None);
     }
 
     private void OpenDefaultPlayerButton_Click(object sender, RoutedEventArgs e)

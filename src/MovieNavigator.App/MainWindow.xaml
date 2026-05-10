@@ -19,12 +19,14 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel>
                 <TextBlock Text="{Binding AppTitle}" Foreground="#F9FAFB" FontSize="28" FontWeight="SemiBold" />
                 <TextBlock Text="{Binding StatusMessage}" Foreground="#9CA3AF" FontSize="13" />
             </StackPanel>
-            <Button Grid.Column="1" Content="选择目录并快速扫描" Click="ScanFolderButton_Click" Padding="18,8" Background="#FBBF24" Foreground="#111827" FontWeight="SemiBold" />
+            <Button Grid.Column="1" Content="增量扫描全部目录" Click="IncrementalScanAllRootsButton_Click" Padding="18,8" Margin="0,0,8,0" Background="#374151" Foreground="#F9FAFB" FontWeight="SemiBold" />
+            <Button Grid.Column="2" Content="选择目录并快速扫描" Click="ScanFolderButton_Click" Padding="18,8" Background="#FBBF24" Foreground="#111827" FontWeight="SemiBold" />
         </Grid>
 
         <Border Grid.Row="1" Grid.RowSpan="2" Background="#1F2937" CornerRadius="14" Padding="12" Margin="0,0,12,0">

@@ -195,7 +195,7 @@ git commit -m "feat: load persistent media index on startup"
 - Modify: `src/MovieNavigator.App/ViewModels/MainWindowViewModel.cs`
 - Test: `tests/MovieNavigator.Tests/Indexing/IncrementalScanTests.cs`
 
-- [ ] **Step 1: Add schema for scan roots**
+- [x] **Step 1: Add schema for scan roots**
 
 Add table:
 
@@ -208,11 +208,11 @@ CREATE TABLE IF NOT EXISTS scan_roots (
 );
 ```
 
-- [ ] **Step 2: Add failing test for saved scan root**
+- [x] **Step 2: Add failing test for saved scan root**
 
 Test saves `D:\Movies` as enabled normal root, recreates repository, then loads it and asserts the path is present.
 
-- [ ] **Step 3: Implement scan root repository**
+- [x] **Step 3: Implement scan root repository**
 
 Implement:
 
@@ -225,7 +225,7 @@ public sealed class SqliteScanRootRepository
 }
 ```
 
-- [ ] **Step 4: Add incremental scan behavior**
+- [x] **Step 4: Add incremental scan behavior**
 
 Change quick scan into:
 
@@ -241,11 +241,11 @@ For each saved root:
 
 If the current schema does not store last write time, add `last_write_time_utc TEXT NULL` to `media_items` with `ALTER TABLE` guarded by `PRAGMA table_info`.
 
-- [ ] **Step 5: UI behavior**
+- [x] **Step 5: UI behavior**
 
 The top button text should become `添加目录并扫描`. Add a second button `增量扫描全部目录`. On startup, if scan roots exist, show `已加载 N 个视频，M 个扫描目录`.
 
-- [ ] **Step 6: Verify**
+- [x] **Step 6: Verify**
 
 Run:
 
@@ -254,7 +254,7 @@ dotnet test .\tests\MovieNavigator.Tests\MovieNavigator.Tests.csproj --filter In
 dotnet test .\tests\MovieNavigator.Tests\MovieNavigator.Tests.csproj -v minimal
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```powershell
 git add src tests

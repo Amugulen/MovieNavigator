@@ -44,6 +44,13 @@ public static class DatabaseInitializer
             media_id UNINDEXED,
             content
         );
+
+        CREATE TABLE IF NOT EXISTS scan_roots (
+            path TEXT PRIMARY KEY,
+            library_type INTEGER NOT NULL,
+            enabled INTEGER NOT NULL,
+            last_scan_at TEXT NULL
+        );
         """;
         await command.ExecuteNonQueryAsync(cancellationToken);
     }

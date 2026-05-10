@@ -4,6 +4,7 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using MovieNavigator.App.Localization;
 using MovieNavigator.Core.Abstractions;
+using MovieNavigator.Core.Indexing;
 using MovieNavigator.Core.Media;
 using MovieNavigator.Core.Tags;
 
@@ -19,6 +20,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private const long MinimumQuickScanSizeBytes = 100L * 1024L * 1024L;
 
     private readonly IMediaRepository _mediaRepository;
+    private readonly IScanRootRepository? _scanRootRepository;
     private readonly string _homeSection;
     private readonly string _normalLibrarySection;
     private readonly string _driveBrowseSection;
@@ -35,9 +37,10 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private TagNodeViewModel? _selectedTag;
     private readonly List<MediaCardViewModel> _allMediaCards = [];
 
-    public MainWindowViewModel(IAppLocalizer localizer, IMediaRepository mediaRepository)
+    public MainWindowViewModel(IAppLocalizer localizer, IMediaRepository mediaRepository, IScanRootRepository? scanRootRepository = null)
     {
         _mediaRepository = mediaRepository;
+        _scanRootRepository = scanRootRepository;
         AppTitle = localizer.Get(LocalizedStrings.AppTitle);
         DetailTitle = localizer.Get(LocalizedStrings.DetailTitle);
         PendingWorkbenchTitle = localizer.Get(LocalizedStrings.PendingWorkbench);
@@ -213,20 +216,45 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         StatusMessage = $"正在扫描：{folderPath}";
         ResultSummary = "扫描中...";
 
-        var files = EnumerateCandidateFiles(folderPath).ToList();
-        var items = new List<MediaItem>();
-
-        foreach (var file in files)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var item = CreateQuickScannedItem(file);
-            await _mediaRepository.UpsertAsync(item, cancellationToken);
-            items.Add(item);
-        }
+        await SaveScanRootAsync(folderPath, cancellationToken);
+        var items = await ScanSingleRootAsync(folderPath, markMissing: false, cancellationToken);
 
         RefreshFromItems(items);
         StatusMessage = $"扫描完成：发现 {items.Count} 个视频。快速扫描默认只收录大于 100MB 的常见视频文件。";
         ResultSummary = items.Count == 0 ? "没有符合收录规则的视频" : $"扫描结果：{items.Count} 个视频";
+    }
+
+    public async Task IncrementalScanAllRootsAsync(CancellationToken cancellationToken)
+    {
+        if (_scanRootRepository is null)
+        {
+            StatusMessage = "当前版本未接入扫描目录存储，无法执行增量扫描。";
+            return;
+        }
+
+        var roots = await _scanRootRepository.GetEnabledAsync(MediaLibraryType.Normal, cancellationToken);
+        if (roots.Count == 0)
+        {
+            StatusMessage = "还没有保存扫描目录。请先选择目录并扫描一次。";
+            ResultSummary = "没有扫描目录";
+            return;
+        }
+
+        var scannedCount = 0;
+        foreach (var root in roots)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!Directory.Exists(root.Path))
+            {
+                await MarkIndexedFilesUnderMissingRootAsync(root.Path, cancellationToken);
+                continue;
+            }
+
+            scannedCount += (await ScanSingleRootAsync(root.Path, markMissing: true, cancellationToken)).Count;
+        }
+
+        await LoadIndexAsync(cancellationToken);
+        StatusMessage = $"增量扫描完成：检查 {roots.Count} 个目录，发现 {scannedCount} 个当前可访问视频。";
     }
 
     private static IEnumerable<FileInfo> EnumerateCandidateFiles(string folderPath)
@@ -259,6 +287,66 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
                 yield return info;
             }
         }
+    }
+
+    private async Task SaveScanRootAsync(string folderPath, CancellationToken cancellationToken)
+    {
+        if (_scanRootRepository is null)
+        {
+            return;
+        }
+
+        var root = new ScanRoot(folderPath, MediaLibraryType.Normal, IsEnabled: true, LastScanAt: DateTimeOffset.UtcNow);
+        await _scanRootRepository.UpsertAsync(root, cancellationToken);
+    }
+
+    private async Task<IReadOnlyList<MediaItem>> ScanSingleRootAsync(string folderPath, bool markMissing, CancellationToken cancellationToken)
+    {
+        var files = EnumerateCandidateFiles(folderPath).ToList();
+        var items = new List<MediaItem>();
+        var seenPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+        foreach (var file in files)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var item = CreateQuickScannedItem(file);
+            await _mediaRepository.UpsertAsync(item, cancellationToken);
+            items.Add(item);
+            seenPaths.Add(item.FilePath);
+        }
+
+        if (markMissing)
+        {
+            var indexed = await _mediaRepository.GetAllAsync(MediaLibraryType.Normal, includeAdultWhenUnlocked: false, cancellationToken);
+            foreach (var item in indexed.Where(item => IsUnderRoot(item.FilePath, folderPath) && !seenPaths.Contains(item.FilePath)))
+            {
+                await _mediaRepository.MarkMissingAsync(item.FilePath, DateTimeOffset.UtcNow, cancellationToken);
+            }
+        }
+
+        if (_scanRootRepository is not null)
+        {
+            await _scanRootRepository.UpdateLastScanAtAsync(folderPath, DateTimeOffset.UtcNow, cancellationToken);
+        }
+
+        return items;
+    }
+
+    private async Task MarkIndexedFilesUnderMissingRootAsync(string folderPath, CancellationToken cancellationToken)
+    {
+        var indexed = await _mediaRepository.GetAllAsync(MediaLibraryType.Normal, includeAdultWhenUnlocked: false, cancellationToken);
+        foreach (var item in indexed.Where(item => IsUnderRoot(item.FilePath, folderPath)))
+        {
+            await _mediaRepository.MarkMissingAsync(item.FilePath, DateTimeOffset.UtcNow, cancellationToken);
+        }
+    }
+
+    private static bool IsUnderRoot(string filePath, string folderPath)
+    {
+        var normalizedFile = Path.GetFullPath(filePath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        var normalizedFolder = Path.GetFullPath(folderPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        return normalizedFile.StartsWith(normalizedFolder + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase) ||
+            string.Equals(normalizedFile, normalizedFolder, StringComparison.OrdinalIgnoreCase);
     }
 
     private static MediaItem CreateQuickScannedItem(FileInfo file)

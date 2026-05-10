@@ -2,6 +2,7 @@ using FluentAssertions;
 using MovieNavigator.App.Localization;
 using MovieNavigator.App.ViewModels;
 using MovieNavigator.Core.Abstractions;
+using MovieNavigator.Core.Indexing;
 using MovieNavigator.Core.Media;
 
 namespace MovieNavigator.Tests.App;
@@ -26,6 +27,26 @@ public sealed class MainWindowViewModelTests
         viewModel.MediaCards[0].Title.Should().Be("Soviet Film");
         viewModel.DriveItems.Should().ContainSingle(drive => drive.Key == "D:");
         viewModel.ResultSummary.Should().Contain("1");
+    }
+
+    [Fact]
+    public async Task Quick_scan_saves_root_and_incremental_scan_all_roots_reuses_it()
+    {
+        using var temp = new TemporaryVideoFolder();
+        var original = temp.CreateLargeVideo("original.mkv");
+        var mediaRepository = new InMemoryMediaRepository();
+        var scanRootRepository = new InMemoryScanRootRepository();
+        var viewModel = new MainWindowViewModel(new PassThroughLocalizer(), mediaRepository, scanRootRepository);
+
+        await viewModel.QuickScanFolderAsync(temp.Path, CancellationToken.None);
+        scanRootRepository.Roots.Should().ContainSingle(root => root.Path == temp.Path);
+
+        File.Delete(original);
+        temp.CreateLargeVideo("new-video.mp4");
+        await viewModel.IncrementalScanAllRootsAsync(CancellationToken.None);
+
+        viewModel.MediaCards.Select(card => card.Title).Should().Contain(["new-video", "original"]);
+        (await mediaRepository.GetByPathAsync(original, CancellationToken.None))!.Status.Should().Be(MediaStatus.Offline);
     }
 
     [Fact]
@@ -119,11 +140,12 @@ public sealed class MainWindowViewModelTests
 
         public string Path { get; }
 
-        public void CreateLargeVideo(string fileName)
+        public string CreateLargeVideo(string fileName)
         {
             var filePath = System.IO.Path.Combine(Path, fileName);
             using var stream = File.Create(filePath);
             stream.SetLength(LargeVideoSizeBytes);
+            return filePath;
         }
 
         public void Dispose()
@@ -194,6 +216,33 @@ public sealed class MainWindowViewModelTests
                 _items.Add(item with { Status = MediaStatus.Offline, UpdatedAt = missingSince });
             }
 
+            return Task.CompletedTask;
+        }
+    }
+
+    private sealed class InMemoryScanRootRepository : IScanRootRepository
+    {
+        public List<ScanRoot> Roots { get; } = [];
+
+        public Task UpsertAsync(ScanRoot root, CancellationToken cancellationToken)
+        {
+            Roots.RemoveAll(existing => existing.Path == root.Path);
+            Roots.Add(root);
+            return Task.CompletedTask;
+        }
+
+        public Task<IReadOnlyList<ScanRoot>> GetEnabledAsync(MediaLibraryType libraryType, CancellationToken cancellationToken)
+        {
+            return Task.FromResult<IReadOnlyList<ScanRoot>>(Roots
+                .Where(root => root.LibraryType == libraryType && root.IsEnabled)
+                .ToList());
+        }
+
+        public Task UpdateLastScanAtAsync(string path, DateTimeOffset scannedAt, CancellationToken cancellationToken)
+        {
+            var root = Roots.Single(existing => existing.Path == path);
+            Roots.Remove(root);
+            Roots.Add(root with { LastScanAt = scannedAt });
             return Task.CompletedTask;
         }
     }
