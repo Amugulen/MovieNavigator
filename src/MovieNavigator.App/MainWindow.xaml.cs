@@ -16,6 +16,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         _viewModel = new MainWindowViewModel(CreateLocalizer(), new SqliteMediaRepository(databaseFactory));
         DataContext = _viewModel;
+        Loaded += async (_, _) => await _viewModel.LoadIndexAsync(CancellationToken.None);
     }
 
     private static IAppLocalizer CreateLocalizer()

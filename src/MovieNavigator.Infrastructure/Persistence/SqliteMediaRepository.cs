@@ -74,6 +74,36 @@ public sealed class SqliteMediaRepository : IMediaRepository
         await transaction.CommitAsync(cancellationToken);
     }
 
+    public async Task<IReadOnlyList<MediaItem>> GetAllAsync(MediaLibraryType libraryType, bool includeAdultWhenUnlocked, CancellationToken cancellationToken)
+    {
+        var connection = await _factory.OpenAsync(cancellationToken);
+        var command = connection.CreateCommand();
+        command.CommandText = """
+        SELECT id, library_type, status, file_path, file_name, drive_key, size_bytes, duration_seconds, width, height, title, original_title, year, summary, created_at, updated_at
+        FROM media_items
+        WHERE library_type = $libraryType
+          AND ($includeAdult = 1 OR library_type <> 1)
+        ORDER BY updated_at DESC;
+        """;
+        command.Parameters.AddWithValue("$libraryType", (int)libraryType);
+        command.Parameters.AddWithValue("$includeAdult", includeAdultWhenUnlocked ? 1 : 0);
+        return await ReadMediaItemsAsync(connection, command, cancellationToken);
+    }
+
+    public async Task<MediaItem?> GetByPathAsync(string filePath, CancellationToken cancellationToken)
+    {
+        var connection = await _factory.OpenAsync(cancellationToken);
+        var command = connection.CreateCommand();
+        command.CommandText = """
+        SELECT id, library_type, status, file_path, file_name, drive_key, size_bytes, duration_seconds, width, height, title, original_title, year, summary, created_at, updated_at
+        FROM media_items
+        WHERE file_path = $filePath
+        LIMIT 1;
+        """;
+        command.Parameters.AddWithValue("$filePath", filePath);
+        return (await ReadMediaItemsAsync(connection, command, cancellationToken)).SingleOrDefault();
+    }
+
     public async Task<IReadOnlyList<MediaItem>> SearchAsync(string query, MediaLibraryType libraryType, bool includeAdultWhenUnlocked, CancellationToken cancellationToken)
     {
         var connection = await _factory.OpenAsync(cancellationToken);
@@ -90,7 +120,7 @@ public sealed class SqliteMediaRepository : IMediaRepository
         command.Parameters.AddWithValue("$query", EscapeFtsQuery(query));
         command.Parameters.AddWithValue("$libraryType", (int)libraryType);
         command.Parameters.AddWithValue("$includeAdult", includeAdultWhenUnlocked ? 1 : 0);
-        var ftsResults = await ReadMediaItemsAsync(command, cancellationToken);
+        var ftsResults = await ReadMediaItemsAsync(connection, command, cancellationToken);
         if (ftsResults.Count > 0)
         {
             return ftsResults;
@@ -109,7 +139,7 @@ public sealed class SqliteMediaRepository : IMediaRepository
         fallback.Parameters.AddWithValue("$likeQuery", $"%{query}%");
         fallback.Parameters.AddWithValue("$libraryType", (int)libraryType);
         fallback.Parameters.AddWithValue("$includeAdult", includeAdultWhenUnlocked ? 1 : 0);
-        return await ReadMediaItemsAsync(fallback, cancellationToken);
+        return await ReadMediaItemsAsync(connection, fallback, cancellationToken);
     }
 
     public async Task<IReadOnlyList<MediaItem>> GetByDriveAsync(string driveKey, MediaLibraryType libraryType, CancellationToken cancellationToken)
@@ -124,7 +154,23 @@ public sealed class SqliteMediaRepository : IMediaRepository
         """;
         command.Parameters.AddWithValue("$driveKey", driveKey);
         command.Parameters.AddWithValue("$libraryType", (int)libraryType);
-        return await ReadMediaItemsAsync(command, cancellationToken);
+        return await ReadMediaItemsAsync(connection, command, cancellationToken);
+    }
+
+    public async Task MarkMissingAsync(string filePath, DateTimeOffset missingSince, CancellationToken cancellationToken)
+    {
+        var connection = await _factory.OpenAsync(cancellationToken);
+        var command = connection.CreateCommand();
+        command.CommandText = """
+        UPDATE media_items
+        SET status = $status,
+            updated_at = $updatedAt
+        WHERE file_path = $filePath;
+        """;
+        command.Parameters.AddWithValue("$status", (int)MediaStatus.Offline);
+        command.Parameters.AddWithValue("$updatedAt", missingSince.ToString("O"));
+        command.Parameters.AddWithValue("$filePath", filePath);
+        await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
     private static void AddMediaParameters(SqliteCommand command, MediaItem item)
@@ -183,7 +229,7 @@ public sealed class SqliteMediaRepository : IMediaRepository
         return "\"" + query.Replace("\"", "\"\"") + "\"";
     }
 
-    private static async Task<IReadOnlyList<MediaItem>> ReadMediaItemsAsync(SqliteCommand command, CancellationToken cancellationToken)
+    private static async Task<IReadOnlyList<MediaItem>> ReadMediaItemsAsync(SqliteConnection connection, SqliteCommand command, CancellationToken cancellationToken)
     {
         var items = new List<MediaItem>();
         await using var reader = await command.ExecuteReaderAsync(cancellationToken);
@@ -204,11 +250,32 @@ public sealed class SqliteMediaRepository : IMediaRepository
                 reader.IsDBNull(11) ? null : reader.GetString(11),
                 reader.IsDBNull(12) ? null : reader.GetInt32(12),
                 reader.IsDBNull(13) ? null : reader.GetString(13),
-                Array.Empty<TagKey>(),
+                await ReadTagsAsync(connection, reader.GetString(0), cancellationToken),
                 DateTimeOffset.Parse(reader.GetString(14)),
                 DateTimeOffset.Parse(reader.GetString(15))));
         }
 
         return items;
+    }
+
+    private static async Task<IReadOnlyCollection<TagKey>> ReadTagsAsync(SqliteConnection connection, string mediaId, CancellationToken cancellationToken)
+    {
+        var command = connection.CreateCommand();
+        command.CommandText = """
+        SELECT tag_key
+        FROM media_tags
+        WHERE media_id = $mediaId
+        ORDER BY tag_key;
+        """;
+        command.Parameters.AddWithValue("$mediaId", mediaId);
+
+        var tags = new List<TagKey>();
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            tags.Add(TagKey.Parse(reader.GetString(0)));
+        }
+
+        return tags;
     }
 }

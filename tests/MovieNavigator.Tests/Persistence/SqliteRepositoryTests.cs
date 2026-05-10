@@ -8,6 +8,36 @@ namespace MovieNavigator.Tests.Persistence;
 public sealed class SqliteRepositoryTests
 {
     [Fact]
+    public async Task Get_all_returns_saved_media_after_repository_recreated()
+    {
+        await using var factory = SqliteConnectionFactory.InMemory();
+        await DatabaseInitializer.InitializeAsync(factory, CancellationToken.None);
+
+        var firstRepository = new SqliteMediaRepository(factory);
+        var sovietTag = TagKey.Parse("country.soviet_union");
+        var first = CreateMediaItem(
+            @"D:\Movies\Soviet\film.mkv",
+            "film.mkv",
+            "Soviet Film",
+            [sovietTag]);
+        var second = CreateMediaItem(
+            @"E:\Movies\Animation\family.mp4",
+            "family.mp4",
+            "Family Animation",
+            []);
+
+        await firstRepository.UpsertAsync(first, CancellationToken.None);
+        await firstRepository.UpsertAsync(second, CancellationToken.None);
+
+        var recreatedRepository = new SqliteMediaRepository(factory);
+        var results = await recreatedRepository.GetAllAsync(MediaLibraryType.Normal, includeAdultWhenUnlocked: false, CancellationToken.None);
+
+        results.Should().HaveCount(2);
+        results.Select(item => item.FilePath).Should().BeEquivalentTo(first.FilePath, second.FilePath);
+        results.Single(item => item.FilePath == first.FilePath).Tags.Should().ContainSingle(tag => tag == sovietTag);
+    }
+
+    [Fact]
     public async Task Save_and_search_media_by_tag_and_path()
     {
         await using var factory = SqliteConnectionFactory.InMemory();
@@ -43,5 +73,28 @@ public sealed class SqliteRepositoryTests
 
         results.Should().ContainSingle();
         results[0].FilePath.Should().Be(item.FilePath);
+    }
+
+    private static MediaItem CreateMediaItem(string filePath, string fileName, string title, IReadOnlyCollection<TagKey> tags)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return new MediaItem(
+            Guid.NewGuid(),
+            MediaLibraryType.Normal,
+            MediaStatus.Pending,
+            filePath,
+            fileName,
+            Path.GetPathRoot(filePath)?.TrimEnd('\\') ?? "unknown",
+            2_000_000_000,
+            TimeSpan.FromMinutes(100),
+            1920,
+            1080,
+            title,
+            null,
+            null,
+            null,
+            tags,
+            now,
+            now);
     }
 }

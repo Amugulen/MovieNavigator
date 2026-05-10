@@ -197,6 +197,17 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
+    public async Task LoadIndexAsync(CancellationToken cancellationToken)
+    {
+        var items = await _mediaRepository.GetAllAsync(MediaLibraryType.Normal, includeAdultWhenUnlocked: false, cancellationToken);
+        RefreshFromItems(items);
+
+        StatusMessage = items.Count == 0
+            ? "索引为空。请选择目录进行首次扫描。"
+            : $"已从索引加载 {items.Count} 个视频。";
+        ResultSummary = items.Count == 0 ? "索引为空" : $"索引中已有 {items.Count} 个视频";
+    }
+
     public async Task QuickScanFolderAsync(string folderPath, CancellationToken cancellationToken)
     {
         StatusMessage = $"正在扫描：{folderPath}";

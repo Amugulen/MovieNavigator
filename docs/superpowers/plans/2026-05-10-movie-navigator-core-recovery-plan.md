@@ -115,11 +115,11 @@ This plan fixes the core product gap the user reported. It does not implement on
 - Test: `tests/MovieNavigator.Tests/Persistence/SqliteRepositoryTests.cs`
 - Test: `tests/MovieNavigator.Tests/App/MainWindowViewModelTests.cs`
 
-- [ ] **Step 1: Write repository test for loading saved media**
+- [x] **Step 1: Write repository test for loading saved media**
 
 Add a test named `Get_all_returns_saved_media_after_repository_recreated`. It should save two `MediaItem` rows, create a new `SqliteMediaRepository` over the same factory, call `GetAllAsync(MediaLibraryType.Normal, false, CancellationToken.None)`, and assert both rows are returned.
 
-- [ ] **Step 2: Verify test fails**
+- [x] **Step 2: Verify test fails**
 
 Run:
 
@@ -129,7 +129,7 @@ dotnet test .\tests\MovieNavigator.Tests\MovieNavigator.Tests.csproj --filter Ge
 
 Expected: compile failure because `GetAllAsync` does not exist.
 
-- [ ] **Step 3: Add repository API**
+- [x] **Step 3: Add repository API**
 
 Add to `IMediaRepository`:
 
@@ -139,7 +139,7 @@ Task<MediaItem?> GetByPathAsync(string filePath, CancellationToken cancellationT
 Task MarkMissingAsync(string filePath, DateTimeOffset missingSince, CancellationToken cancellationToken);
 ```
 
-- [ ] **Step 4: Implement SQLite loading**
+- [x] **Step 4: Implement SQLite loading**
 
 Implement `GetAllAsync` in `SqliteMediaRepository` using:
 
@@ -153,11 +153,11 @@ ORDER BY updated_at DESC;
 
 Also update `ReadMediaItemsAsync` to load `media_tags` for each returned item instead of always returning `Array.Empty<TagKey>()`.
 
-- [ ] **Step 5: Add startup load in ViewModel**
+- [x] **Step 5: Add startup load in ViewModel**
 
 Add `LoadIndexAsync(CancellationToken)` to `MainWindowViewModel`. It calls repository `GetAllAsync`, converts rows to cards, builds drive and classification lists, and sets `ResultSummary` to `索引中已有 N 个视频`.
 
-- [ ] **Step 6: Call startup load from window**
+- [x] **Step 6: Call startup load from window**
 
 In `MainWindow.xaml.cs`, after setting `DataContext`, call an async loaded handler:
 
@@ -165,7 +165,7 @@ In `MainWindow.xaml.cs`, after setting `DataContext`, call an async loaded handl
 Loaded += async (_, _) => await _viewModel.LoadIndexAsync(CancellationToken.None);
 ```
 
-- [ ] **Step 7: Verify**
+- [x] **Step 7: Verify**
 
 Run:
 
@@ -176,7 +176,7 @@ dotnet build .\MovieNavigator.sln -v minimal
 
 Expected: all tests pass, build has 0 errors.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```powershell
 git add src tests
@@ -613,4 +613,3 @@ git commit -m "feat: add text-only AI classification settings"
 - No cloud image/video analysis.
 - No attempt to infer sensitive adult visual content from thumbnails.
 - No final installer or single EXE packaging.
-

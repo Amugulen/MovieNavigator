@@ -9,6 +9,26 @@ namespace MovieNavigator.Tests.App;
 public sealed class MainWindowViewModelTests
 {
     [Fact]
+    public async Task Load_index_populates_media_cards_from_repository_without_scan()
+    {
+        var repository = new InMemoryMediaRepository();
+        var item = CreateMediaItem(
+            @"D:\Movies\Soviet\film.mkv",
+            "film.mkv",
+            "Soviet Film",
+            [MovieNavigator.Core.Tags.TagKey.Parse("country.soviet_union")]);
+        await repository.UpsertAsync(item, CancellationToken.None);
+        var viewModel = new MainWindowViewModel(new PassThroughLocalizer(), repository);
+
+        await viewModel.LoadIndexAsync(CancellationToken.None);
+
+        viewModel.MediaCards.Should().ContainSingle();
+        viewModel.MediaCards[0].Title.Should().Be("Soviet Film");
+        viewModel.DriveItems.Should().ContainSingle(drive => drive.Key == "D:");
+        viewModel.ResultSummary.Should().Contain("1");
+    }
+
+    [Fact]
     public async Task Search_text_filters_scanned_media_cards()
     {
         using var temp = new TemporaryVideoFolder();
@@ -60,6 +80,33 @@ public sealed class MainWindowViewModelTests
         viewModel.ResultSummary.Should().Contain("扫描结果");
     }
 
+    private static MediaItem CreateMediaItem(
+        string filePath,
+        string fileName,
+        string title,
+        IReadOnlyCollection<MovieNavigator.Core.Tags.TagKey> tags)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return new MediaItem(
+            Guid.NewGuid(),
+            MediaLibraryType.Normal,
+            MediaStatus.Pending,
+            filePath,
+            fileName,
+            Path.GetPathRoot(filePath)?.TrimEnd('\\') ?? "unknown",
+            2_000_000_000,
+            TimeSpan.FromMinutes(100),
+            1920,
+            1080,
+            title,
+            null,
+            null,
+            null,
+            tags,
+            now,
+            now);
+    }
+
     private sealed class TemporaryVideoFolder : IDisposable
     {
         private const long LargeVideoSizeBytes = 101L * 1024L * 1024L;
@@ -106,6 +153,21 @@ public sealed class MainWindowViewModelTests
             return Task.CompletedTask;
         }
 
+        public Task<IReadOnlyList<MediaItem>> GetAllAsync(
+            MediaLibraryType libraryType,
+            bool includeAdultWhenUnlocked,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult<IReadOnlyList<MediaItem>>(_items
+                .Where(item => item.LibraryType == libraryType)
+                .ToList());
+        }
+
+        public Task<MediaItem?> GetByPathAsync(string filePath, CancellationToken cancellationToken)
+        {
+            return Task.FromResult(_items.SingleOrDefault(item => item.FilePath == filePath));
+        }
+
         public Task<IReadOnlyList<MediaItem>> SearchAsync(
             string query,
             MediaLibraryType libraryType,
@@ -121,6 +183,18 @@ public sealed class MainWindowViewModelTests
             CancellationToken cancellationToken)
         {
             return Task.FromResult<IReadOnlyList<MediaItem>>(_items.Where(item => item.DriveKey == driveKey).ToList());
+        }
+
+        public Task MarkMissingAsync(string filePath, DateTimeOffset missingSince, CancellationToken cancellationToken)
+        {
+            var item = _items.SingleOrDefault(existing => existing.FilePath == filePath);
+            if (item is not null)
+            {
+                _items.Remove(item);
+                _items.Add(item with { Status = MediaStatus.Offline, UpdatedAt = missingSince });
+            }
+
+            return Task.CompletedTask;
         }
     }
 }

@@ -212,6 +212,30 @@
 
 ## 当前验证状态
 
+## 2026-05-10 Task 1 进展：持久启动索引
+
+已完成：
+
+- `IMediaRepository` 增加 `GetAllAsync`、`GetByPathAsync`、`MarkMissingAsync`。
+- `SqliteMediaRepository.GetAllAsync` 可以从 SQLite 加载普通库索引。
+- `SqliteMediaRepository` 读取媒体时不再丢失 `media_tags`，TAG 会随媒体一起返回。
+- `MainWindowViewModel.LoadIndexAsync` 可以在不重新扫描的情况下加载已有索引。
+- `MainWindow.xaml.cs` 在窗口 `Loaded` 后调用 `LoadIndexAsync`。
+- 新增测试证明 repository 重建后仍能加载已保存媒体。
+- 新增测试证明 ViewModel 可以从 repository 加载媒体卡片。
+
+仍未完成：
+
+- 还没有保存扫描目录。
+- 还没有增量扫描全部目录。
+- 还没有标记丢失文件的完整 UI。
+- 还没有真实分类 Facet。
+- 还没有缩略图。
+
+本阶段用户可见变化：
+
+- 如果之前已经扫描并写入 SQLite，重新打开软件后应能自动显示已有索引，不需要先手动重新扫描。
+
 最近一次已验证：
 
 ```powershell
@@ -227,4 +251,3 @@ dotnet build .\MovieNavigator.sln -v minimal
 结果：0 警告，0 错误。
 
 注意：这些验证只说明当前代码能构建、已有测试通过，不说明用户提出的 5 个核心缺口已经完成。
-
