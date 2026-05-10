@@ -419,7 +419,7 @@ git commit -m "feat: generate local video thumbnails"
 - Modify: `src/MovieNavigator.App/MainWindow.xaml`
 - Test: `tests/MovieNavigator.Tests/App/MainWindowViewModelTests.cs`
 
-- [ ] **Step 1: Add view mode state**
+- [x] **Step 1: Add view mode state**
 
 Create:
 
@@ -434,11 +434,11 @@ public enum ViewMode
 
 Add `SelectedViewMode` to `MainWindowViewModel`.
 
-- [ ] **Step 2: Write test**
+- [x] **Step 2: Write test**
 
 Test switching `SelectedViewMode` updates property changed and preserves the current filtered media list.
 
-- [ ] **Step 3: Replace list UI**
+- [x] **Step 3: Replace list UI**
 
 In XAML, add three buttons:
 
@@ -450,11 +450,11 @@ In XAML, add three buttons:
 
 Default to thumbnail grid. Use `WrapPanel` or `UniformGrid` inside an `ItemsControl` for thumbnail cards.
 
-- [ ] **Step 4: Thumbnail fallback**
+- [x] **Step 4: Thumbnail fallback**
 
 If `ThumbnailPath` is null or missing, show a styled placeholder containing extension and title. Do not show a broken image icon.
 
-- [ ] **Step 5: Verify manually**
+- [x] **Step 5: Verify manually**
 
 Manual checks:
 
@@ -469,7 +469,7 @@ Open folder
 Search and classification filters still work
 ```
 
-- [ ] **Step 6: Automated verify**
+- [x] **Step 6: Automated verify**
 
 Run:
 
@@ -478,7 +478,7 @@ dotnet test .\tests\MovieNavigator.Tests\MovieNavigator.Tests.csproj -v minimal
 dotnet build .\MovieNavigator.sln -v minimal
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```powershell
 git add src tests

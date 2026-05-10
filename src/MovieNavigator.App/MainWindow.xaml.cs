@@ -80,6 +80,21 @@ public partial class MainWindow : Window
         await _viewModel.IncrementalScanAllRootsAsync(CancellationToken.None);
     }
 
+    private void ThumbnailGridButton_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.SetThumbnailGridView();
+    }
+
+    private void CompactListButton_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.SetCompactListView();
+    }
+
+    private void DetailListButton_Click(object sender, RoutedEventArgs e)
+    {
+        _viewModel.SetDetailListView();
+    }
+
     private void OpenDefaultPlayerButton_Click(object sender, RoutedEventArgs e)
     {
         var path = GetSelectedExistingFilePath();

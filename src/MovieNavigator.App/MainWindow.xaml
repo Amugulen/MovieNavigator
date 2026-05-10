@@ -3,6 +3,9 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="{Binding AppTitle}" Height="820" Width="1280"
         Background="#111827">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVisibility" />
+    </Window.Resources>
     <Grid Margin="16">
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="220" />
@@ -42,12 +45,57 @@
             <Grid.RowDefinitions>
                 <RowDefinition Height="48" />
                 <RowDefinition Height="48" />
+                <RowDefinition Height="42" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
 
             <TextBox Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}" FontSize="16" Padding="12" Background="#0F172A" Foreground="#F9FAFB" BorderBrush="#374151" />
             <TextBlock Grid.Row="1" Text="{Binding ResultSummary}" Foreground="#FBBF24" VerticalAlignment="Center" />
-            <ListBox Grid.Row="2" ItemsSource="{Binding MediaCards}" SelectedItem="{Binding SelectedMedia}" Background="#111827" BorderThickness="0">
+            <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,0,0,8">
+                <Button Content="缩略图" Click="ThumbnailGridButton_Click" Padding="14,6" Margin="0,0,8,0" />
+                <Button Content="紧凑列表" Click="CompactListButton_Click" Padding="14,6" Margin="0,0,8,0" />
+                <Button Content="详情列表" Click="DetailListButton_Click" Padding="14,6" />
+            </StackPanel>
+
+            <ListBox Grid.Row="3" ItemsSource="{Binding MediaCards}" SelectedItem="{Binding SelectedMedia}" Background="#111827" BorderThickness="0" Visibility="{Binding IsThumbnailGridView, Converter={StaticResource BoolToVisibility}}">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Border Width="220" Height="230" Background="#1F2937" CornerRadius="16" Padding="10" Margin="0,0,12,12">
+                            <StackPanel>
+                                <Border Height="124" Background="#0F172A" CornerRadius="12" Margin="0,0,0,10">
+                                    <Grid>
+                                        <Image Source="{Binding ThumbnailPath}" Stretch="UniformToFill" />
+                                        <TextBlock Text="{Binding Extension}" Foreground="#6B7280" FontSize="24" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                                    </Grid>
+                                </Border>
+                                <TextBlock Text="{Binding Title}" Foreground="#F9FAFB" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap" MaxHeight="42" />
+                                <TextBlock Text="{Binding Duration}" Foreground="#D1D5DB" FontSize="12" Margin="0,6,0,0" />
+                                <TextBlock Text="{Binding Resolution}" Foreground="#9CA3AF" FontSize="12" />
+                            </StackPanel>
+                        </Border>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <ListBox Grid.Row="3" ItemsSource="{Binding MediaCards}" SelectedItem="{Binding SelectedMedia}" Background="#111827" BorderThickness="0" Visibility="{Binding IsCompactListView, Converter={StaticResource BoolToVisibility}}">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <Border Background="#1F2937" CornerRadius="10" Padding="10" Margin="0,0,0,8">
+                            <DockPanel>
+                                <TextBlock Text="{Binding Title}" Foreground="#F9FAFB" FontSize="16" FontWeight="SemiBold" DockPanel.Dock="Left" />
+                                <TextBlock Text="{Binding Status}" Foreground="#FBBF24" HorizontalAlignment="Right" />
+                            </DockPanel>
+                        </Border>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+
+            <ListBox Grid.Row="3" ItemsSource="{Binding MediaCards}" SelectedItem="{Binding SelectedMedia}" Background="#111827" BorderThickness="0" Visibility="{Binding IsDetailListView, Converter={StaticResource BoolToVisibility}}">
                 <ListBox.ItemTemplate>
                     <DataTemplate>
                         <Border Background="#1F2937" CornerRadius="12" Padding="12" Margin="0,0,0,10">

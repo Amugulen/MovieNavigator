@@ -39,6 +39,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private DriveItemViewModel? _selectedDrive;
     private TagNodeViewModel? _selectedTag;
     private ClassificationFacetViewModel? _selectedClassificationFacet;
+    private ViewMode _selectedViewMode = ViewMode.ThumbnailGrid;
     private readonly List<MediaCardViewModel> _allMediaCards = [];
 
     public MainWindowViewModel(
@@ -108,6 +109,43 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     public ObservableCollection<PendingItemViewModel> PendingItems { get; } = [];
 
     public ObservableCollection<ClassificationFacetViewModel> ClassificationFacets { get; } = [];
+
+    public ViewMode SelectedViewMode
+    {
+        get => _selectedViewMode;
+        set
+        {
+            if (_selectedViewMode == value)
+            {
+                return;
+            }
+
+            _selectedViewMode = value;
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedViewMode)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsThumbnailGridView)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsCompactListView)));
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsDetailListView)));
+        }
+    }
+
+    public bool IsThumbnailGridView => SelectedViewMode == ViewMode.ThumbnailGrid;
+    public bool IsCompactListView => SelectedViewMode == ViewMode.CompactList;
+    public bool IsDetailListView => SelectedViewMode == ViewMode.DetailList;
+
+    public void SetThumbnailGridView()
+    {
+        SelectedViewMode = ViewMode.ThumbnailGrid;
+    }
+
+    public void SetCompactListView()
+    {
+        SelectedViewMode = ViewMode.CompactList;
+    }
+
+    public void SetDetailListView()
+    {
+        SelectedViewMode = ViewMode.DetailList;
+    }
 
     public MediaCardViewModel? SelectedMedia
     {

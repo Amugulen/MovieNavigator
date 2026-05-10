@@ -56,6 +56,31 @@ public sealed class MainWindowViewModelTests
     }
 
     [Fact]
+    public async Task Changing_view_mode_preserves_filtered_media_cards()
+    {
+        var repository = new InMemoryMediaRepository();
+        await repository.UpsertAsync(CreateMediaItem(
+            @"D:\Movies\War\film.mkv",
+            "film.mkv",
+            "War Film",
+            [MovieNavigator.Core.Tags.TagKey.Parse("genre.war")]), CancellationToken.None);
+        await repository.UpsertAsync(CreateMediaItem(
+            @"D:\Movies\Family\family.mp4",
+            "family.mp4",
+            "Family Film",
+            []), CancellationToken.None);
+        var viewModel = new MainWindowViewModel(new PassThroughLocalizer(), repository);
+
+        await viewModel.LoadIndexAsync(CancellationToken.None);
+        viewModel.SearchText = "War";
+        viewModel.SelectedViewMode = ViewMode.DetailList;
+
+        viewModel.MediaCards.Should().ContainSingle();
+        viewModel.MediaCards[0].Title.Should().Be("War Film");
+        viewModel.SelectedViewMode.Should().Be(ViewMode.DetailList);
+    }
+
+    [Fact]
     public async Task Quick_scan_saves_root_and_incremental_scan_all_roots_reuses_it()
     {
         using var temp = new TemporaryVideoFolder();
