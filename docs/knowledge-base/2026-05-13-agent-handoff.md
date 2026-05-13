@@ -7,7 +7,7 @@
 - 仓库：`https://github.com/Amugulen/MovieNavigator.git`
 - 本地 worktree：`H:\CodexSoftware\自动搜索影视信息的软件\.worktrees\mvp-foundation`
 - 当前分支：`feature/mvp-foundation`
-- 当前状态：工作区干净，已同步 `origin/feature/mvp-foundation`
+- 当前状态：Task 6 已实现，工作区有未提交改动，尚未推送
 - 最新提交：`e88510a docs: correct manual verification status`
 
 ## 用户核心诉求
@@ -110,9 +110,36 @@
 - `src/MovieNavigator.App/ViewModels/ViewMode.cs`
 - `src/MovieNavigator.App/ViewModels/MediaCardViewModel.cs`
 
+### Text-Only AI 分类设置
+
+- AI 设置已持久化到 SQLite `app_settings`。
+- 支持 Provider、Base URL、Model、API Key、Enable AI。
+- AI 默认关闭。
+- API Key 只有用户明确填写保存时才写入；普通保存不会清掉已有 Key。
+- 右侧设置区已有最小 AI 设置 UI 和 `Test connection`。
+- `Test connection` 会走 OpenAI-compatible 客户端发送文本-only 探测请求，不是假按钮。
+- 待确认工作台已有 `用AI根据文本线索建议TAG` 按钮。
+- 调用 AI 前会弹窗列出将发送的文本字段。
+- AI payload 只包含文件名、文件夹路径、手动标题、手动标识/番号、手动网址、已有 TAG、时长、分辨率、库类型。
+- 不发送截图、缩略图、视频、音频或媒体字节。
+- AI 建议当前只弹窗展示，不自动写入数据库。
+- 无效 JSON 会报错且不修改媒体数据。
+
+关键文件：
+
+- `src/MovieNavigator.Core/Ai/AiSettings.cs`
+- `src/MovieNavigator.Core/Ai/AiClassificationRequest.cs`
+- `src/MovieNavigator.Core/Ai/AiClassificationSuggestion.cs`
+- `src/MovieNavigator.Core/Abstractions/IAiSettingsRepository.cs`
+- `src/MovieNavigator.Core/Abstractions/IAiClassificationClient.cs`
+- `src/MovieNavigator.Infrastructure/Persistence/SqliteAppSettingsRepository.cs`
+- `src/MovieNavigator.Infrastructure/Ai/OpenAiCompatibleClassificationClient.cs`
+- `src/MovieNavigator.App/ViewModels/AiSettingsViewModel.cs`
+
 ## 最近提交
 
 ```text
+未提交 feat: add text-only AI classification settings
 e88510a docs: correct manual verification status
 e1faa40 feat: add thumbnail grid and view modes
 5dec1ef feat: generate local video thumbnails
@@ -133,7 +160,7 @@ df33a40 docs: add core recovery plan and progress log
 dotnet test .\tests\MovieNavigator.Tests\MovieNavigator.Tests.csproj -v minimal
 ```
 
-结果：42 个测试通过，0 失败。
+结果：55 个测试通过，0 失败。
 
 ```powershell
 dotnet build .\MovieNavigator.sln -v minimal
@@ -141,7 +168,7 @@ dotnet build .\MovieNavigator.sln -v minimal
 
 结果：0 警告，0 错误。
 
-注意：GUI 人工点测没有完成。PLAN 中 Task 5 的 `Verify manually` 仍然是未勾选，这是故意保留的真实状态。
+注意：GUI 人工点测没有完成。PLAN 中 Task 5 的 `Verify manually` 仍然是未勾选，这是故意保留的真实状态。Task 6 的 UI 也只经过编译和 ViewModel/客户端自动化测试，未做真实 API 手工点测。
 
 ## 已知问题和风险
 
@@ -172,9 +199,9 @@ ffprobe
 
 已有成人库基础模型，但没有完整 UI 隔离流程。不要声称成人库已完成。
 
-### 6. AI 还没开始实现
+### 6. AI 还没有建议写入流程
 
-Task 6 还没有做。当前没有 API Key 配置、没有 AI 调用、没有 AI 建议写入。
+Task 6 已完成设置、文本-only 客户端、连接测试和建议展示。当前 AI 建议不会自动写入 TAG；后续必须做用户确认后的写入流程，且仍然不能发送截图、视频或音频。
 
 ## 下一步推荐
 
@@ -182,35 +209,11 @@ Task 6 还没有做。当前没有 API Key 配置、没有 AI 调用、没有 AI
 
 `docs/superpowers/plans/2026-05-10-movie-navigator-core-recovery-plan.md`
 
-下一项是：
+下一项建议：
 
-## Task 6: Text-Only AI Classification Settings
-
-目标：
-
-- 增加 AI 设置存储。
-- 支持 Provider、Base URL、Model、API Key、Enable AI。
-- 默认关闭 AI。
-- 只发送文本线索，不发送截图、视频、音频。
-- AI 输出只作为建议，用户确认后才写入。
-
-不要做：
-
-- 不要先做云端图片/视频识别。
-- 不要把成人截图发给 AI。
-- 不要在没有确认前自动改数据库。
-- 不要一次性做成人库、文件移动、在线刮削、AI、UI 大改混在一起。
-
-## Task 6 建议执行顺序
-
-1. 新建 `AiSettings`、`AiClassificationRequest`、`AiClassificationSuggestion`。
-2. 新建 `IAiClassificationClient`。
-3. SQLite 增加 `app_settings` 表。
-4. 新建 `SqliteAppSettingsRepository`。
-5. 新建 `AiSettingsViewModel`。
-6. 设置页先做最小 UI：Base URL、Model、API Key、Enable AI、Test connection。
-7. 新建 OpenAI-compatible 客户端，但测试中使用假 HTTP handler，不要依赖真实网络。
-8. 待确认工作台加 `用AI根据文本线索建议TAG`，调用前弹窗确认将发送的文本字段。
+1. 先人工点测 Task 5/Task 6 GUI，不要把未点测的 GUI 勾成已验证。
+2. 做 AI 建议的用户确认写入流程：展示建议 TAG，用户确认后才写入数据库。
+3. 继续成人库隔离 UI，但不要和 AI、文件移动、在线刮削混在一个大改里。
 
 ## 常用命令
 
@@ -252,4 +255,3 @@ git -c safe.directory=H:/CodexSoftware/自动搜索影视信息/software/.worktr
 - 完成后必须更新知识库日志。
 - 不要把未人工验证的 GUI 行为标记为已手动验证。
 - 提交后推送到 `feature/mvp-foundation`。
-

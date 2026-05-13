@@ -55,6 +55,11 @@ public static class DatabaseInitializer
             enabled INTEGER NOT NULL,
             last_scan_at TEXT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS app_settings (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
         """;
         await command.ExecuteNonQueryAsync(cancellationToken);
 

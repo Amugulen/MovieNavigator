@@ -501,7 +501,7 @@ git commit -m "feat: add thumbnail grid and view modes"
 - Test: `tests/MovieNavigator.Tests/Ai/AiSettingsTests.cs`
 - Test: `tests/MovieNavigator.Tests/Ai/AiClassificationClientTests.cs`
 
-- [ ] **Step 1: Store AI settings**
+- [x] **Step 1: Store AI settings**
 
 Add settings table:
 
@@ -514,7 +514,7 @@ CREATE TABLE IF NOT EXISTS app_settings (
 
 Store provider/base URL/model/enabled. Store API key only if user explicitly saves it; never print it in logs or status.
 
-- [ ] **Step 2: Define text-only request**
+- [x] **Step 2: Define text-only request**
 
 Fields:
 
@@ -532,7 +532,7 @@ library type
 
 Do not include screenshots, thumbnails, audio, or video bytes.
 
-- [ ] **Step 3: Add settings UI**
+- [x] **Step 3: Add settings UI**
 
 Settings page must show:
 
@@ -551,13 +551,13 @@ Also show this warning:
 当前版本只发送文本线索，不发送截图、视频、音频。成人库建议使用单独配置。
 ```
 
-- [ ] **Step 4: Add AI suggestion button in pending workbench**
+- [x] **Step 4: Add AI suggestion button in pending workbench**
 
 Button text: `用AI根据文本线索建议TAG`.
 
 Before calling AI, show a confirmation dialog listing exactly which text fields will be sent.
 
-- [ ] **Step 5: Parse AI response into suggestions**
+- [x] **Step 5: Parse AI response into suggestions**
 
 Expected JSON:
 
@@ -574,7 +574,7 @@ Expected JSON:
 
 If model returns invalid JSON, show error and keep the media item unchanged.
 
-- [ ] **Step 6: Verify**
+- [x] **Step 6: Verify**
 
 Run:
 
@@ -583,7 +583,7 @@ dotnet test .\tests\MovieNavigator.Tests\MovieNavigator.Tests.csproj --filter Ai
 dotnet build .\MovieNavigator.sln -v minimal
 ```
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```powershell
 git add src tests

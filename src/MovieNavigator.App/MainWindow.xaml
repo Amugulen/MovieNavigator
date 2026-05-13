@@ -10,7 +10,7 @@
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="220" />
             <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="340" />
+            <ColumnDefinition Width="380" />
         </Grid.ColumnDefinitions>
         <Grid.RowDefinitions>
             <RowDefinition Height="64" />
@@ -116,28 +116,53 @@
             </ListBox>
         </Grid>
 
-        <Border Grid.Column="2" Grid.Row="1" Background="#1F2937" CornerRadius="14" Padding="16" Margin="0,0,0,12">
+        <ScrollViewer Grid.Column="2" Grid.Row="1" Margin="0,0,0,12" VerticalScrollBarVisibility="Auto">
             <StackPanel>
-                <TextBlock Text="{Binding DetailTitle}" Foreground="#F9FAFB" FontSize="22" FontWeight="SemiBold" />
-                <TextBlock Text="{Binding SelectedTitle}" Foreground="#FBBF24" FontSize="16" Margin="0,12,0,0" TextWrapping="Wrap" />
-                <TextBlock Text="{Binding SelectedPath, StringFormat=路径：{0}}" Foreground="#D1D5DB" Margin="0,8,0,0" TextWrapping="Wrap" />
-                <TextBlock Text="{Binding SelectedDuration, StringFormat=时长：{0}}" Foreground="#D1D5DB" />
-                <TextBlock Text="{Binding SelectedResolution, StringFormat=分辨率：{0}}" Foreground="#D1D5DB" />
-                <TextBlock Text="导演：待确认" Foreground="#D1D5DB" />
-                <TextBlock Text="国家：苏联" Foreground="#D1D5DB" />
-                <TextBlock Text="{Binding SelectedTags, StringFormat=TAG：{0}}" Foreground="#FBBF24" Margin="0,8,0,16" TextWrapping="Wrap" />
-                <Button Content="{Binding OpenDefaultPlayerText}" Click="OpenDefaultPlayerButton_Click" Margin="0,0,0,8" />
-                <Button Content="{Binding OpenFolderText}" Click="OpenFolderButton_Click" Margin="0,0,0,8" />
-                <Button Content="{Binding MoveOrganizeText}" Click="MoveOrganizeButton_Click" Margin="0,0,0,8" />
-                <Button Content="{Binding RescanText}" Click="RescanButton_Click" Margin="0,0,0,8" />
-                <Button Content="{Binding AddTagText}" Click="AddTagButton_Click" />
+                <Border Background="#1F2937" CornerRadius="14" Padding="16" Margin="0,0,0,12">
+                    <StackPanel>
+                        <TextBlock Text="{Binding DetailTitle}" Foreground="#F9FAFB" FontSize="22" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding SelectedTitle}" Foreground="#FBBF24" FontSize="16" Margin="0,12,0,0" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding SelectedPath, StringFormat=路径：{0}}" Foreground="#D1D5DB" Margin="0,8,0,0" TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding SelectedDuration, StringFormat=时长：{0}}" Foreground="#D1D5DB" />
+                        <TextBlock Text="{Binding SelectedResolution, StringFormat=分辨率：{0}}" Foreground="#D1D5DB" />
+                        <TextBlock Text="导演：待确认" Foreground="#D1D5DB" />
+                        <TextBlock Text="国家：苏联" Foreground="#D1D5DB" />
+                        <TextBlock Text="{Binding SelectedTags, StringFormat=TAG：{0}}" Foreground="#FBBF24" Margin="0,8,0,16" TextWrapping="Wrap" />
+                        <Button Content="{Binding OpenDefaultPlayerText}" Click="OpenDefaultPlayerButton_Click" Margin="0,0,0,8" />
+                        <Button Content="{Binding OpenFolderText}" Click="OpenFolderButton_Click" Margin="0,0,0,8" />
+                        <Button Content="{Binding MoveOrganizeText}" Click="MoveOrganizeButton_Click" Margin="0,0,0,8" />
+                        <Button Content="{Binding RescanText}" Click="RescanButton_Click" Margin="0,0,0,8" />
+                        <Button Content="{Binding AddTagText}" Click="AddTagButton_Click" />
+                    </StackPanel>
+                </Border>
+                <Border x:Name="AiSettingsPanel" Background="#1F2937" CornerRadius="14" Padding="16">
+                    <StackPanel>
+                        <TextBlock Text="AI 文本分类设置" Foreground="#F9FAFB" FontSize="20" FontWeight="SemiBold" />
+                        <TextBlock Text="{Binding WarningText}" Foreground="#FBBF24" TextWrapping="Wrap" Margin="0,8,0,12" />
+                        <CheckBox Content="启用 AI" IsChecked="{Binding IsEnabled}" Foreground="#F9FAFB" Margin="0,0,0,8" />
+                        <TextBlock Text="Provider" Foreground="#9CA3AF" />
+                        <TextBox Text="{Binding Provider, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,8" Padding="8" />
+                        <TextBlock Text="Base URL" Foreground="#9CA3AF" />
+                        <TextBox Text="{Binding BaseUrl, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,8" Padding="8" />
+                        <TextBlock Text="Model" Foreground="#9CA3AF" />
+                        <TextBox Text="{Binding Model, UpdateSourceTrigger=PropertyChanged}" Margin="0,4,0,8" Padding="8" />
+                        <TextBlock Text="API Key" Foreground="#9CA3AF" />
+                        <PasswordBox x:Name="AiApiKeyBox" PasswordChanged="AiApiKeyBox_PasswordChanged" Margin="0,4,0,8" Padding="8" />
+                        <TextBlock Text="{Binding StatusMessage}" Foreground="#D1D5DB" TextWrapping="Wrap" Margin="0,0,0,8" />
+                        <StackPanel Orientation="Horizontal">
+                            <Button Content="保存 AI 设置" Click="SaveAiSettingsButton_Click" Padding="12,6" Margin="0,0,8,0" />
+                            <Button Content="Test connection" Click="TestAiConnectionButton_Click" Padding="12,6" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
             </StackPanel>
-        </Border>
+        </ScrollViewer>
 
         <Border Grid.Column="1" Grid.ColumnSpan="2" Grid.Row="2" Background="#1F2937" CornerRadius="14" Padding="16">
             <StackPanel>
                 <TextBlock Text="{Binding PendingWorkbenchTitle}" Foreground="#F9FAFB" FontSize="20" FontWeight="SemiBold" />
                 <TextBlock Text="填写线索：标题 / 番号 / 导演 / 介绍网址 -> AI文本分类 -> 用户确认后入库" Foreground="#D1D5DB" Margin="0,8,0,8" />
+                <Button Content="用AI根据文本线索建议TAG" Click="SuggestTagsWithAiButton_Click" HorizontalAlignment="Left" Padding="12,6" Margin="0,0,0,8" />
                 <ListBox ItemsSource="{Binding PendingItems}" DisplayMemberPath="HintText" Height="72" Background="#0F172A" Foreground="#F9FAFB" BorderThickness="0" />
             </StackPanel>
         </Border>

@@ -1,8 +1,12 @@
 using System.Diagnostics;
 using System.IO;
+using System.Net.Http;
+using System.Text.Json;
 using System.Windows;
 using MovieNavigator.App.Localization;
 using MovieNavigator.App.ViewModels;
+using MovieNavigator.Core.Ai;
+using MovieNavigator.Infrastructure.Ai;
 using MovieNavigator.Infrastructure.Persistence;
 using MovieNavigator.Infrastructure.Video;
 
@@ -11,10 +15,18 @@ namespace MovieNavigator.App;
 public partial class MainWindow : Window
 {
     private readonly MainWindowViewModel _viewModel;
+    private readonly AiSettingsViewModel _aiSettingsViewModel;
+    private readonly SqliteAppSettingsRepository _aiSettingsRepository;
+    private readonly OpenAiCompatibleClassificationClient _aiClassificationClient;
 
     public MainWindow(SqliteConnectionFactory databaseFactory)
     {
         InitializeComponent();
+        _aiSettingsRepository = new SqliteAppSettingsRepository(databaseFactory);
+        _aiClassificationClient = new OpenAiCompatibleClassificationClient(new HttpClient());
+        _aiSettingsViewModel = new AiSettingsViewModel(
+            _aiSettingsRepository,
+            _aiClassificationClient);
         _viewModel = new MainWindowViewModel(
             CreateLocalizer(),
             new SqliteMediaRepository(databaseFactory),
@@ -22,7 +34,12 @@ public partial class MainWindow : Window
             new FfmpegThumbnailGenerator("ffmpeg", CreateThumbnailDirectory()),
             new FfprobeVideoInspector("ffprobe"));
         DataContext = _viewModel;
-        Loaded += async (_, _) => await _viewModel.LoadIndexAsync(CancellationToken.None);
+        AiSettingsPanel.DataContext = _aiSettingsViewModel;
+        Loaded += async (_, _) =>
+        {
+            await _viewModel.LoadIndexAsync(CancellationToken.None);
+            await _aiSettingsViewModel.LoadAsync(CancellationToken.None);
+        };
     }
 
     private static string CreateThumbnailDirectory()
@@ -80,6 +97,55 @@ public partial class MainWindow : Window
         await _viewModel.IncrementalScanAllRootsAsync(CancellationToken.None);
     }
 
+    private async void SaveAiSettingsButton_Click(object sender, RoutedEventArgs e)
+    {
+        await _aiSettingsViewModel.SaveAsync(CancellationToken.None);
+    }
+
+    private async void TestAiConnectionButton_Click(object sender, RoutedEventArgs e)
+    {
+        await _aiSettingsViewModel.TestConnectionAsync(CancellationToken.None);
+    }
+
+    private void AiApiKeyBox_PasswordChanged(object sender, RoutedEventArgs e)
+    {
+        _aiSettingsViewModel.ApiKey = AiApiKeyBox.Password;
+    }
+
+    private async void SuggestTagsWithAiButton_Click(object sender, RoutedEventArgs e)
+    {
+        var selected = _viewModel.SelectedMedia;
+        if (selected is null)
+        {
+            ShowInfo("请先在中间列表中选择一个影片。");
+            return;
+        }
+
+        var request = BuildAiRequest(selected);
+        var message = "将只发送以下文本字段给 AI，不发送截图、视频、音频：\n\n" +
+            string.Join(Environment.NewLine, request.ToConfirmationLines());
+        var confirm = System.Windows.MessageBox.Show(
+            message,
+            "用AI根据文本线索建议TAG",
+            MessageBoxButton.OKCancel,
+            MessageBoxImage.Warning);
+        if (confirm != MessageBoxResult.OK)
+        {
+            return;
+        }
+
+        try
+        {
+            var settings = await _aiSettingsRepository.LoadAiSettingsAsync(CancellationToken.None);
+            var suggestion = await _aiClassificationClient.SuggestAsync(settings, request, CancellationToken.None);
+            ShowInfo($"AI 建议：\n标题：{suggestion.Title ?? "-"}\nTAG：{string.Join(", ", suggestion.Tags.Select(tag => tag.Value))}\n置信度：{suggestion.Confidence:0.00}\n\n当前版本只展示建议，不会自动写入数据库。");
+        }
+        catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or JsonException)
+        {
+            ShowInfo($"AI 建议失败，数据未修改：{ex.Message}");
+        }
+    }
+
     private void ThumbnailGridButton_Click(object sender, RoutedEventArgs e)
     {
         _viewModel.SetThumbnailGridView();
@@ -130,6 +196,31 @@ public partial class MainWindow : Window
     private void AddTagButton_Click(object sender, RoutedEventArgs e)
     {
         ShowInfo("添加 TAG 功能还没有接入编辑器。当前版本会自动添加硬盘 TAG，例如 storage.drive.d。");
+    }
+
+    private static AiClassificationRequest BuildAiRequest(MediaCardViewModel selected)
+    {
+        var directory = Path.GetDirectoryName(selected.FilePath) ?? string.Empty;
+        var resolutionParts = selected.Resolution.Split('x', StringSplitOptions.TrimEntries);
+        int? width = resolutionParts.Length == 2 && int.TryParse(resolutionParts[0], out var parsedWidth)
+            ? parsedWidth
+            : null;
+        int? height = resolutionParts.Length == 2 && int.TryParse(resolutionParts[1], out var parsedHeight)
+            ? parsedHeight
+            : null;
+        var duration = TimeSpan.TryParse(selected.Duration, out var parsedDuration) ? parsedDuration : (TimeSpan?)null;
+
+        return new AiClassificationRequest(
+            Path.GetFileName(selected.FilePath),
+            directory,
+            selected.Title,
+            null,
+            null,
+            selected.Tags.Select(MovieNavigator.Core.Tags.TagKey.Parse).ToArray(),
+            duration,
+            width,
+            height,
+            MovieNavigator.Core.Media.MediaLibraryType.Normal);
     }
 
     private string? GetSelectedExistingFilePath()
