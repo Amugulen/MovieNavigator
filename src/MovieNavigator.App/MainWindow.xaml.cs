@@ -32,7 +32,8 @@ public partial class MainWindow : Window
             new SqliteMediaRepository(databaseFactory),
             new SqliteScanRootRepository(databaseFactory),
             new FfmpegThumbnailGenerator("ffmpeg", CreateThumbnailDirectory()),
-            new FfprobeVideoInspector("ffprobe"));
+            new FfprobeVideoInspector("ffprobe"),
+            _aiClassificationClient);
         DataContext = _viewModel;
         AiSettingsPanel.DataContext = _aiSettingsViewModel;
         Loaded += async (_, _) =>
@@ -138,7 +139,20 @@ public partial class MainWindow : Window
         {
             var settings = await _aiSettingsRepository.LoadAiSettingsAsync(CancellationToken.None);
             var suggestion = await _aiClassificationClient.SuggestAsync(settings, request, CancellationToken.None);
-            ShowInfo($"AI 建议：\n标题：{suggestion.Title ?? "-"}\nTAG：{string.Join(", ", suggestion.Tags.Select(tag => tag.Value))}\n置信度：{suggestion.Confidence:0.00}\n\n当前版本只展示建议，不会自动写入数据库。");
+            var suggestedTags = suggestion.Tags.Select(tag => tag.Value).ToArray();
+            var apply = System.Windows.MessageBox.Show(
+                $"AI 建议：\n标题：{suggestion.Title ?? "-"}\nTAG：{string.Join(", ", suggestedTags)}\n置信度：{suggestion.Confidence:0.00}\n\n确认后只会写入这些 TAG，不会自动移动文件或改其他资料。",
+                "确认写入 AI 建议 TAG",
+                MessageBoxButton.OKCancel,
+                MessageBoxImage.Question);
+            if (apply != MessageBoxResult.OK)
+            {
+                ShowInfo("已取消写入，媒体数据未修改。");
+                return;
+            }
+
+            await _viewModel.ConfirmAiSuggestionAsync(suggestion, CancellationToken.None);
+            ShowInfo($"已写入 TAG：{string.Join(", ", suggestedTags)}");
         }
         catch (Exception ex) when (ex is InvalidOperationException or HttpRequestException or JsonException)
         {

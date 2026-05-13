@@ -103,6 +103,30 @@ public sealed class SqliteRepositoryTests
         loaded.MissingSince.Should().Be(missingSince);
     }
 
+    [Fact]
+    public async Task Add_tags_merges_new_tags_and_refreshes_search_index()
+    {
+        await using var factory = SqliteConnectionFactory.InMemory();
+        await DatabaseInitializer.InitializeAsync(factory, CancellationToken.None);
+        var mediaRepository = new SqliteMediaRepository(factory);
+        var tagRepository = new SqliteTagRepository(factory);
+        var originalTag = TagKey.Parse("country.soviet_union");
+        var aiTag = TagKey.Parse("genre.war");
+        await tagRepository.UpsertAsync(new TagDefinition(originalTag, "苏联", "Soviet Union", [], TagKey.Parse("country")), CancellationToken.None);
+        await tagRepository.UpsertAsync(new TagDefinition(aiTag, "战争", "War", [], TagKey.Parse("genre")), CancellationToken.None);
+        var item = CreateMediaItem(@"D:\Movies\film.mkv", "film.mkv", "Film", [originalTag]);
+        await mediaRepository.UpsertAsync(item, CancellationToken.None);
+
+        await mediaRepository.AddTagsAsync(item.FilePath, [originalTag, aiTag], CancellationToken.None);
+
+        var loaded = await mediaRepository.GetByPathAsync(item.FilePath, CancellationToken.None);
+        loaded.Should().NotBeNull();
+        loaded!.Tags.Select(tag => tag.Value).Should().BeEquivalentTo("country.soviet_union", "genre.war");
+
+        var searchResults = await mediaRepository.SearchAsync("战争", MediaLibraryType.Normal, includeAdultWhenUnlocked: false, CancellationToken.None);
+        searchResults.Should().ContainSingle(result => result.FilePath == item.FilePath);
+    }
+
 
     private static MediaItem CreateMediaItem(string filePath, string fileName, string title, IReadOnlyCollection<TagKey> tags)
     {

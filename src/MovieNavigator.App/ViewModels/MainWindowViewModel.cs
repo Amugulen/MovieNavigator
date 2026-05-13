@@ -4,6 +4,7 @@ using System.IO;
 using System.Runtime.CompilerServices;
 using MovieNavigator.App.Localization;
 using MovieNavigator.Core.Abstractions;
+using MovieNavigator.Core.Ai;
 using MovieNavigator.Core.Classification;
 using MovieNavigator.Core.Indexing;
 using MovieNavigator.Core.Media;
@@ -24,6 +25,7 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
     private readonly IScanRootRepository? _scanRootRepository;
     private readonly IThumbnailGenerator? _thumbnailGenerator;
     private readonly IVideoInspector? _videoInspector;
+    private readonly IAiClassificationClient? _aiClassificationClient;
     private readonly string _homeSection;
     private readonly string _normalLibrarySection;
     private readonly string _driveBrowseSection;
@@ -47,12 +49,14 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         IMediaRepository mediaRepository,
         IScanRootRepository? scanRootRepository = null,
         IThumbnailGenerator? thumbnailGenerator = null,
-        IVideoInspector? videoInspector = null)
+        IVideoInspector? videoInspector = null,
+        IAiClassificationClient? aiClassificationClient = null)
     {
         _mediaRepository = mediaRepository;
         _scanRootRepository = scanRootRepository;
         _thumbnailGenerator = thumbnailGenerator;
         _videoInspector = videoInspector;
+        _aiClassificationClient = aiClassificationClient;
         AppTitle = localizer.Get(LocalizedStrings.AppTitle);
         DetailTitle = localizer.Get(LocalizedStrings.DetailTitle);
         PendingWorkbenchTitle = localizer.Get(LocalizedStrings.PendingWorkbench);
@@ -324,6 +328,34 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         StatusMessage = $"增量扫描完成：检查 {roots.Count} 个目录，发现 {scannedCount} 个当前可访问视频。";
     }
 
+    public async Task<AiClassificationSuggestion?> GetAiTagSuggestionForSelectedMediaAsync(CancellationToken cancellationToken)
+    {
+        if (_aiClassificationClient is null || SelectedMedia is null)
+        {
+            return null;
+        }
+
+        return await _aiClassificationClient.SuggestAsync(
+            new AiSettings(AiSettings.DefaultProvider, AiSettings.DefaultBaseUrl, "test", IsEnabled: true),
+            BuildAiRequest(SelectedMedia),
+            cancellationToken);
+    }
+
+    public async Task ConfirmAiSuggestionAsync(
+        AiClassificationSuggestion suggestion,
+        CancellationToken cancellationToken)
+    {
+        if (SelectedMedia is null || suggestion.Tags.Count == 0)
+        {
+            return;
+        }
+
+        var selectedPath = SelectedMedia.FilePath;
+        await _mediaRepository.AddTagsAsync(selectedPath, suggestion.Tags, cancellationToken);
+        await LoadIndexAsync(cancellationToken);
+        SelectedMedia = MediaCards.FirstOrDefault(card => string.Equals(card.FilePath, selectedPath, StringComparison.OrdinalIgnoreCase));
+    }
+
     private static IEnumerable<FileInfo> EnumerateCandidateFiles(string folderPath)
     {
         var options = new EnumerationOptions
@@ -406,6 +438,31 @@ public sealed class MainWindowViewModel : INotifyPropertyChanged
         {
             await _mediaRepository.MarkMissingAsync(item.FilePath, DateTimeOffset.UtcNow, cancellationToken);
         }
+    }
+
+    private static AiClassificationRequest BuildAiRequest(MediaCardViewModel selected)
+    {
+        var directory = Path.GetDirectoryName(selected.FilePath) ?? string.Empty;
+        var resolutionParts = selected.Resolution.Split('x', StringSplitOptions.TrimEntries);
+        int? width = resolutionParts.Length == 2 && int.TryParse(resolutionParts[0], out var parsedWidth)
+            ? parsedWidth
+            : null;
+        int? height = resolutionParts.Length == 2 && int.TryParse(resolutionParts[1], out var parsedHeight)
+            ? parsedHeight
+            : null;
+        var duration = TimeSpan.TryParse(selected.Duration, out var parsedDuration) ? parsedDuration : (TimeSpan?)null;
+
+        return new AiClassificationRequest(
+            Path.GetFileName(selected.FilePath),
+            directory,
+            selected.Title,
+            null,
+            null,
+            selected.Tags.Select(TagKey.Parse).ToArray(),
+            duration,
+            width,
+            height,
+            MediaLibraryType.Normal);
     }
 
     private static bool IsUnderRoot(string filePath, string folderPath)

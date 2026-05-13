@@ -2,6 +2,7 @@ using FluentAssertions;
 using MovieNavigator.App.Localization;
 using MovieNavigator.App.ViewModels;
 using MovieNavigator.Core.Abstractions;
+using MovieNavigator.Core.Ai;
 using MovieNavigator.Core.Indexing;
 using MovieNavigator.Core.Media;
 
@@ -170,6 +171,36 @@ public sealed class MainWindowViewModelTests
         viewModel.ResultSummary.Should().Contain("扫描结果");
     }
 
+    [Fact]
+    public async Task Confirm_ai_suggestion_merges_tags_and_refreshes_media_cards()
+    {
+        var repository = new InMemoryMediaRepository();
+        var item = CreateMediaItem(
+            @"D:\Movies\film.mkv",
+            "film.mkv",
+            "Film",
+            [MovieNavigator.Core.Tags.TagKey.Parse("country.soviet_union")]);
+        await repository.UpsertAsync(item, CancellationToken.None);
+        var aiClient = new FixedAiClassificationClient(new AiClassificationSuggestion(
+            "Film",
+            null,
+            null,
+            [MovieNavigator.Core.Tags.TagKey.Parse("genre.war")],
+            0.8,
+            "filename matched"));
+        var viewModel = new MainWindowViewModel(new PassThroughLocalizer(), repository, aiClassificationClient: aiClient);
+        await viewModel.LoadIndexAsync(CancellationToken.None);
+
+        var suggestion = await viewModel.GetAiTagSuggestionForSelectedMediaAsync(CancellationToken.None);
+        await viewModel.ConfirmAiSuggestionAsync(suggestion!, CancellationToken.None);
+
+        var saved = await repository.GetByPathAsync(item.FilePath, CancellationToken.None);
+        saved!.Tags.Select(tag => tag.Value).Should().BeEquivalentTo("country.soviet_union", "genre.war");
+        viewModel.MediaCards.Should().ContainSingle();
+        viewModel.MediaCards[0].Tags.Should().BeEquivalentTo("country.soviet_union", "genre.war");
+        viewModel.ClassificationFacets.Should().Contain(facet => facet.Key == "genre.war");
+    }
+
     private static MediaItem CreateMediaItem(
         string filePath,
         string fileName,
@@ -287,6 +318,21 @@ public sealed class MainWindowViewModelTests
 
             return Task.CompletedTask;
         }
+
+        public Task AddTagsAsync(
+            string filePath,
+            IReadOnlyCollection<MovieNavigator.Core.Tags.TagKey> tags,
+            CancellationToken cancellationToken)
+        {
+            var item = _items.Single(existing => existing.FilePath == filePath);
+            _items.Remove(item);
+            _items.Add(item with
+            {
+                Tags = item.Tags.Concat(tags).Distinct().ToArray(),
+                UpdatedAt = DateTimeOffset.UtcNow
+            });
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class InMemoryScanRootRepository : IScanRootRepository
@@ -328,6 +374,24 @@ public sealed class MainWindowViewModelTests
         public Task<VideoInspectionResult> InspectAsync(string filePath, CancellationToken cancellationToken)
         {
             return Task.FromResult(_result);
+        }
+    }
+
+    private sealed class FixedAiClassificationClient : IAiClassificationClient
+    {
+        private readonly AiClassificationSuggestion _suggestion;
+
+        public FixedAiClassificationClient(AiClassificationSuggestion suggestion)
+        {
+            _suggestion = suggestion;
+        }
+
+        public Task<AiClassificationSuggestion> SuggestAsync(
+            AiSettings settings,
+            AiClassificationRequest request,
+            CancellationToken cancellationToken)
+        {
+            return Task.FromResult(_suggestion);
         }
     }
 }

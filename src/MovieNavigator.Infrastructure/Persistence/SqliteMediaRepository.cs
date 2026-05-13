@@ -179,6 +179,30 @@ public sealed class SqliteMediaRepository : IMediaRepository
         await command.ExecuteNonQueryAsync(cancellationToken);
     }
 
+    public async Task AddTagsAsync(
+        string filePath,
+        IReadOnlyCollection<TagKey> tags,
+        CancellationToken cancellationToken)
+    {
+        if (tags.Count == 0)
+        {
+            return;
+        }
+
+        var item = await GetByPathAsync(filePath, cancellationToken);
+        if (item is null)
+        {
+            throw new InvalidOperationException($"Media item not found: {filePath}");
+        }
+
+        var mergedTags = item.Tags
+            .Concat(tags)
+            .Distinct()
+            .OrderBy(tag => tag.Value)
+            .ToArray();
+        await UpsertAsync(item with { Tags = mergedTags, UpdatedAt = DateTimeOffset.UtcNow }, cancellationToken);
+    }
+
     private static void AddMediaParameters(SqliteCommand command, MediaItem item)
     {
         command.Parameters.AddWithValue("$id", item.Id.ToString());
