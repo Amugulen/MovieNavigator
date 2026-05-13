@@ -7,8 +7,8 @@
 - 仓库：`https://github.com/Amugulen/MovieNavigator.git`
 - 本地 worktree：`H:\CodexSoftware\自动搜索影视信息的软件\.worktrees\mvp-foundation`
 - 当前分支：`feature/mvp-foundation`
-- 当前状态：Task 6 已实现，工作区有未提交改动，尚未推送
-- 最新提交：`e88510a docs: correct manual verification status`
+- 当前状态：Task 6 已实现并本地提交，推送失败：本机 Git/环境代理指向 `127.0.0.1` 但代理服务不可连接
+- 最新提交：`565ff00 feat: add text-only AI classification settings`
 
 ## 用户核心诉求
 
@@ -139,7 +139,8 @@
 ## 最近提交
 
 ```text
-未提交 feat: add text-only AI classification settings
+565ff00 feat: add text-only AI classification settings
+badbfb5 docs: add agent handoff log
 e88510a docs: correct manual verification status
 e1faa40 feat: add thumbnail grid and view modes
 5dec1ef feat: generate local video thumbnails
@@ -254,4 +255,5 @@ git -c safe.directory=H:/CodexSoftware/自动搜索影视信息/software/.worktr
 - 每个功能都要有真实可见行为和测试。
 - 完成后必须更新知识库日志。
 - 不要把未人工验证的 GUI 行为标记为已手动验证。
-- 提交后推送到 `feature/mvp-foundation`。
+- 已本地提交到 `feature/mvp-foundation`，但推送失败。恢复代理或网络后需要执行：
+  `git -c safe.directory=H:/CodexSoftware/自动搜索影视信息/software/.worktrees/mvp-foundation push origin feature/mvp-foundation`
